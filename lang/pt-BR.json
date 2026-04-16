@@ -1,0 +1,11 @@
+{
+  "social.mission.error.mission_not_found": "Missão não encontrada.",
+  "social.mission.error.mission_closed": "Esta missão está encerrada.",
+  "social.mission.error.no_slots": "Não há vagas disponíveis (nem na reserva).",
+  "social.mission.error.permission_denied": "Permissão negada.",
+  "social.post.error.empty_content": "O conteúdo não pode estar vazio.",
+  "social.post.error.invalid_rating": "Avaliação deve ser entre 1 e 5.",
+  "social.poll.error.poll_closed": "Esta enquete está encerrada.",
+  "social.poll.error.poll_expired": "Esta enquete expirou.",
+  "social.poll.error.option_not_found": "Opção não encontrada."
+}

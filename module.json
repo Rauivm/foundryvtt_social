@@ -1,0 +1,37 @@
+{
+  "id": "foundryvtt-social",
+  "title": "Social Hub",
+  "description": "Feed social, mural de missões, enquetes, cemitério e patch notes para seu servidor.",
+  "version": "1.0.0",
+  "socket": true,
+  "compatibility": {
+    "minimum": "11",
+    "verified": "12"
+  },
+  "authors": [
+    {
+      "name": "Raui"
+    }
+  ],
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    "styles/social.css"
+  ],
+  "languages": [
+    {
+      "lang": "pt-BR",
+      "name": "Português (Brasil)",
+      "path": "lang/pt-BR.json"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "socketlib",
+      "type": "module",
+      "manifest": "https://github.com/manuelVo/foundryvtt-socketlib/releases/latest/download/module.json"
+    }
+  ],
+  "flags": {}
+}

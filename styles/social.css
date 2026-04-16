@@ -1,0 +1,715 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Social Hub – social.css
+   Theme: dark-ink parchment with crimson accents
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --social-bg:        #1a1614;
+  --social-surface:   #231e1b;
+  --social-surface2:  #2e2723;
+  --social-border:    #3d342e;
+  --social-accent:    #9b2335;
+  --social-accent2:   #c94040;
+  --social-gold:      #b8922a;
+  --social-text:      #e8ddd0;
+  --social-muted:     #8a7b6e;
+  --social-success:   #4a8c5c;
+  --social-warn:      #8c6b1a;
+  --social-radius:    6px;
+  --social-radius-lg: 10px;
+  --social-font:      'Palatino Linotype', Palatino, serif;
+  --social-font-ui:   'Segoe UI', Tahoma, sans-serif;
+}
+
+/* ─── Window ──────────────────────────────────────────────────────────────── */
+
+.social-hub.app.window-app {
+  background: var(--social-bg) !important;
+  border: 1px solid var(--social-border) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,.7) !important;
+  border-radius: var(--social-radius-lg) !important;
+}
+
+.social-hub .window-header {
+  background: var(--social-surface2);
+  border-bottom: 1px solid var(--social-border);
+  font-family: var(--social-font);
+  color: var(--social-gold);
+  letter-spacing: .5px;
+}
+
+.social-hub .window-content {
+  padding: 0;
+  background: var(--social-bg);
+  color: var(--social-text);
+  font-family: var(--social-font-ui);
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────────────────── */
+
+.social-tabs {
+  display: flex;
+  background: var(--social-surface2);
+  border-bottom: 1px solid var(--social-border);
+  padding: 0 8px;
+  margin: 0;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.social-tabs::-webkit-scrollbar { display: none; }
+
+.social-tabs .item {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .4px;
+  color: var(--social-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+  text-transform: uppercase;
+  font-family: var(--social-font-ui);
+}
+.social-tabs .item:hover { color: var(--social-text); }
+.social-tabs .item.active {
+  color: var(--social-gold);
+  border-bottom-color: var(--social-gold);
+}
+.social-tabs .item i { margin-right: 5px; }
+
+/* ─── Content wrapper ─────────────────────────────────────────────────────── */
+
+.social-content {
+  height: calc(100% - 42px);
+  overflow: hidden;
+}
+
+.social-content .tab {
+  display: none;
+  height: 100%;
+  overflow-y: auto;
+  padding: 14px;
+  box-sizing: border-box;
+}
+.social-content .tab.active { display: block; }
+
+/* Custom scrollbar */
+.social-content .tab::-webkit-scrollbar { width: 5px; }
+.social-content .tab::-webkit-scrollbar-track { background: transparent; }
+.social-content .tab::-webkit-scrollbar-thumb {
+  background: var(--social-border);
+  border-radius: 3px;
+}
+
+/* ─── Card base ───────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--social-surface);
+  border: 1px solid var(--social-border);
+  border-radius: var(--social-radius-lg);
+  padding: 14px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.card:hover { border-color: #4e4038; }
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  background: var(--social-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--social-radius);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.btn-primary:hover { background: var(--social-accent2); }
+.btn-primary:active { transform: scale(.97); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--social-muted);
+  border: 1px solid var(--social-border);
+  border-radius: var(--social-radius);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-ghost:hover { color: var(--social-text); border-color: var(--social-muted); }
+.btn-ghost.danger:hover { color: var(--social-accent2); border-color: var(--social-accent2); }
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--social-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--social-radius);
+  font-size: 12px;
+  transition: color .15s;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* border-radius: 6px; */
+  background: rgba(255,255,255,0.05);
+}
+.icon-btn:hover { color: var(--social-accent2); }
+
+/* ─── Badges ──────────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.badge-summary  { background: rgba(184,146,42,.15); color: var(--social-gold); }
+.badge-success  { background: rgba(74,140,92,.15); color: #6ab87c; }
+.badge-warn     { background: rgba(140,107,26,.15); color: #c49a30; }
+.badge-closed   { background: rgba(80,70,60,.3); color: var(--social-muted); }
+.badge-expired  { background: rgba(155,35,53,.15); color: var(--social-accent2); }
+.badge-status-open   { background: rgba(74,140,92,.15); color: #6ab87c; }
+.badge-status-full   { background: rgba(140,107,26,.15); color: #c49a30; }
+.badge-status-closed { background: rgba(80,70,60,.3); color: var(--social-muted); }
+
+/* ─── Tab header ──────────────────────────────────────────────────────────── */
+
+.tab-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+/* ─── Compose ─────────────────────────────────────────────────────────────── */
+
+.social-compose textarea {
+  width: 100%;
+  background: var(--social-surface2);
+  border: 1px solid var(--social-border);
+  border-radius: var(--social-radius);
+  color: var(--social-text);
+  font-family: var(--social-font-ui);
+  font-size: 13px;
+  padding: 10px;
+  resize: vertical;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+.social-compose textarea:focus {
+  outline: none;
+  border-color: var(--social-accent);
+}
+.compose-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.compose-row select {
+  background: var(--social-surface2);
+  border: 1px solid var(--social-border);
+  border-radius: var(--social-radius);
+  color: var(--social-text);
+  font-size: 12px;
+  padding: 5px 8px;
+}
+.compose-row .btn-primary { margin-left: auto; }
+
+/* ─── Feed Post ───────────────────────────────────────────────────────────── */
+
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.post-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--social-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.post-meta { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.post-author { font-size: 13px; font-weight: 600; color: var(--social-text); }
+.post-time { font-size: 11px; color: var(--social-muted); }
+.post-body { font-size: 13px; line-height: 1.65; color: var(--social-text); margin-bottom: 10px; }
+
+.post-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  position: relative;
+}
+.react-btn {
+  background: var(--social-surface2);
+  border: 1px solid var(--social-border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--social-text);
+  transition: all .15s;
+}
+.react-btn:hover, .react-btn.active {
+  border-color: var(--social-accent);
+  background: rgba(155,35,53,.15);
+}
+.emoji-picker-trigger {
+  position: relative;
+  cursor: pointer;
+}
+.emoji-picker-trigger > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--social-surface2);
+  border: 1px dashed var(--social-border);
+  font-size: 14px;
+  color: var(--social-muted);
+}
+.emoji-picker {
+  display: none;
+  position: absolute;
+  bottom: 32px;
+  left: 0;
+  background: var(--social-surface2);
+  border: 1px solid var(--social-border);
+  border-radius: var(--social-radius);
+  padding: 6px;
+  gap: 4px;
+  z-index: 100;
+  flex-wrap: wrap;
+  width: 160px;
+}
+.emoji-picker-trigger:hover .emoji-picker { display: flex; }
+.emoji-picker .react-btn { padding: 4px 6px; font-size: 14px; }
+
+.mission-rating {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--social-border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rating-label { font-size: 11px; color: var(--social-muted); }
+.rate-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--social-border);
+  padding: 0;
+  line-height: 1;
+  transition: color .15s, transform .1s;
+}
+.rate-btn:hover, .rate-btn.active { color: var(--social-gold); }
+.rate-btn:active { transform: scale(1.3); }
+.rating-stats { font-size: 11px; color: var(--social-muted); margin-left: 4px; }
+
+/* ─── Missions ────────────────────────────────────────────────────────────── */
+
+.missions-grid { display: flex; flex-direction: column; gap: 12px; width: 100%;}
+
+.mission-card .mission-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.mission-card h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--social-font);
+  color: var(--social-text);
+}
+.mission-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--social-muted);
+  margin-bottom: 8px;
+}
+.mission-meta i { margin-right: 3px; }
+.mission-desc {
+  font-size: 12px;
+  color: var(--social-text);
+  margin-bottom: 10px;
+  line-height: 1.5;
+  opacity: .85;
+  white-space: normal;
+  overflow: visible;
+  max-height: none;
+  word-break: break-word;
+}
+
+.slot-bar {
+  position: relative;
+  height: 10px;
+  background: var(--social-border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.slot-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--social-accent);
+  border-radius: 3px;
+  transition: width .4s ease;
+  max-width: 100%;
+  height: 100%;
+}
+.slot-label {
+  font-size: 11px;
+  color: var(--social-muted);
+  margin-bottom: 10px;
+  display: block;
+}
+
+.mission-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--social-border);
+}
+
+.mission-admin-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mission-card.status-closed { opacity: .7; }
+.mission-card.status-closed .slot-fill { background: var(--social-muted); }
+
+/* ─── Polls ───────────────────────────────────────────────────────────────── */
+
+.poll-card.poll-closed, .poll-card.poll-expired { opacity: .75; }
+
+.poll-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.poll-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--social-font);
+  color: var(--social-text);
+  flex: 1;
+}
+.poll-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+.poll-meta { font-size: 11px; color: var(--social-muted); margin-bottom: 12px; }
+
+.poll-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.poll-option { display: flex; flex-direction: column; gap: 3px; }
+.vote-option-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--social-surface2);
+  border: 1px solid var(--social-border);
+  border-radius: var(--social-radius);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--social-text);
+  cursor: pointer;
+  transition: all .15s;
+  text-align: left;
+}
+.vote-option-btn:hover:not(:disabled) {
+  border-color: var(--social-accent);
+  background: rgba(155,35,53,.1);
+}
+.vote-option-btn.voted {
+  border-color: var(--social-accent);
+  background: rgba(155,35,53,.2);
+}
+.vote-option-btn:disabled { opacity: .6; cursor: default; }
+.option-votes { font-size: 11px; color: var(--social-muted); white-space: nowrap; }
+.option-bar {
+  height: 3px;
+  background: var(--social-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.option-fill {
+  height: 100%;
+  background: var(--social-accent);
+  border-radius: 2px;
+  transition: width .4s ease;
+}
+.poll-footer { display: flex; gap: 8px; }
+
+/* ─── Graveyard ───────────────────────────────────────────────────────────── */
+
+.cemetery-header {
+  text-align: center;
+  padding: 20px 0 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--social-border);
+}
+.cemetery-header i {
+  font-size: 28px;
+  color: var(--social-muted);
+  display: block;
+  margin-bottom: 8px;
+}
+.cemetery-header h2 {
+  font-family: var(--social-font);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--social-text);
+  margin: 0 0 4px;
+}
+
+.cemetery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+.cemetery-header p { font-size: 12px; color: var(--social-muted); }
+
+.grave-card {
+  display: block;
+  flex-direction: row;
+  padding: 12px;
+  position: relative;
+}
+
+.grave-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 6px;
+}
+
+.gravestone-icon {
+  font-size: 28px;
+  color: var(--social-muted);
+  width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.grave-info { flex: 1;   width: 100%; }
+.grave-name {
+  margin: 0 0 2px;
+  margin-bottom: 8px;
+  font-family: var(--social-font);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--social-text);
+}
+.grave-date { font-size: 11px; color: var(--social-muted); margin-bottom: 6px; }
+.grave-epitaph {
+  font-family: var(--social-font);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--social-muted);
+  border-left: 2px solid var(--social-border);
+  padding-left: 10px;
+  margin: 6px 0 10px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.grave-modal {
+  text-align: center;
+  padding: 10px;
+}
+
+.grave-photo-placeholder {
+  border: 2px dashed #888;
+  padding: 20px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.grave-modal h2 {
+  margin: 5px 0;
+}
+
+.grave-modal blockquote {
+  font-style: italic;
+  margin: 10px 0;
+}
+
+.grave-stats {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.f-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.f-btn {
+  background: var(--social-surface2);
+  border: 1px solid var(--social-border);
+  border-radius: var(--social-radius);
+  color: var(--social-text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 5px 16px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.f-btn:hover { border-color: var(--social-accent); background: rgba(155,35,53,.15); }
+.f-btn.f-pressed {
+  background: var(--social-accent);
+  border-color: var(--social-accent);
+  color: #fff;
+}
+.f-count { font-size: 12px; color: var(--social-muted); }
+.f-names { font-size: 11px; color: var(--social-muted); flex: 1; text-align: right; }
+
+.rose-fx {
+  position: absolute;
+  bottom: 10px;
+  font-size: 20px;
+  pointer-events: none;
+  animation: roseRise 2.2s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  opacity: 0.95;
+}
+
+@keyframes roseRise {
+  0% {
+    transform: translateY(0) scale(0.9);
+    opacity: 1;
+  }
+  60% {
+    transform: translateY(-140px) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-200px) scale(1.3);
+    opacity: 0;
+  }
+}
+
+/* ─── Patch Notes ─────────────────────────────────────────────────────────── */
+
+.patch-card .patch-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.patch-version {
+  background: rgba(155,35,53,.2);
+  color: var(--social-accent2);
+  border: 1px solid rgba(155,35,53,.3);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  font-family: var(--social-font-ui);
+}
+.patch-card h3 {
+  margin: 0;
+  font-family: var(--social-font);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--social-text);
+  flex: 1;
+}
+.patch-date { font-size: 11px; color: var(--social-muted); }
+.patch-body { font-size: 13px; line-height: 1.65; color: var(--social-text); white-space: pre-wrap; }
+.patch-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--social-gold);
+  text-decoration: none;
+  margin-top: 8px;
+}
+.patch-link:hover { text-decoration: underline; }
+
+/* ─── Empty State ─────────────────────────────────────────────────────────── */
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--social-muted);
+}
+.empty-state i { font-size: 36px; display: block; margin-bottom: 12px; opacity: .5; }
+.empty-state p { font-size: 13px; }
+
+/* ─── Dialog forms ────────────────────────────────────────────────────────── */
+
+.social-dialog-form { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .4px; }
+.form-group input,
+.form-group textarea,
+.form-group select {
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 7px 10px;
+  font-size: 13px;
+  background: #1e1e1e;
+  color: #e0d0c0;
+}
+.form-group input:focus,
+.form-group textarea:focus { outline: none; border-color: #9b2335; }
+.form-row { flex-direction: row; gap: 12px; }
+.form-row > div { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+
+/* ─── Sidebar button ──────────────────────────────────────────────────────── */
+
+.social-hub-sidebar-btn {
+  padding: 4px 8px;
+}
+.social-hub-sidebar-btn button {
+  width: 100%;
+  background: rgba(155,35,53,.2);
+  border: 1px solid rgba(155,35,53,.4);
+  border-radius: 4px;
+  color: #c94040;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.social-hub-sidebar-btn button:hover { background: rgba(155,35,53,.35); }
