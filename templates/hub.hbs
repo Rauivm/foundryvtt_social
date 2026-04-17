@@ -12,16 +12,29 @@
         <textarea id="social-post-content" placeholder="Compartilhe algo com o reino…" rows="3"></textarea>
         <div class="compose-row">
           <select id="social-post-type"><option value="post">Publicação</option><option value="summary">Resumo de Sessão</option></select>
-          <select id="social-post-mission" style="display:none"><option value="">— vincular missão —</option>{{#each missions}}<option value="{{id}}">{{title}}</option>{{/each}}</select>
+          <select id="social-post-mission" name="missionId" style="display:none"><option value="">— vincular missão —</option>{{#each missions}}<option value="{{id}}">{{title}}</option>{{/each}}</select>
           <button id="social-post-submit" class="btn-primary"><i class="fas fa-paper-plane"></i> Publicar</button>
         </div>
       </div>
       <div class="feed-list">
         {{#each posts}}
         <div class="post-card card" data-post-id="{{id}}">
-          <div class="post-header"><span class="post-author">{{authorName}}</span>{{#if canDelete}}<button class="delete-post-btn icon-btn"><i class="fas fa-trash"></i></button>{{/if}}</div>
+          {{#if canDelete}}<button class="delete-post-btn post-delete-btn icon-btn"><i class="fas fa-trash"></i></button>{{/if}}
+          <div class="post-header"><span class="post-author">{{authorName}}</span><span class="post-date">{{createdAtFmt}}</span></div>
           <div class="post-body">{{{content}}}</div>
-          <div class="post-reactions">{{#each reactionList}}<button class="react-btn {{#if active}}active{{/if}}" data-emoji="{{emoji}}">{{emoji}} {{count}}</button>{{/each}}</div>
+          {{#if missionName}}<div class="post-mission">Missão vinculada: {{missionName}}</div>{{/if}}
+          <div class="post-reactions">
+            {{#each reactionList}}
+            <div class="reaction">
+              <button class="react-btn {{#if active}}active{{/if}}" data-emoji="{{emoji}}">{{emoji}} {{count}}</button>
+              <div class="avatars">
+                {{#each users}}
+                <img src="{{img}}" title="{{name}}" />
+                {{/each}}
+              </div>
+            </div>
+            {{/each}}
+          </div>
           {{#if (eq type "summary")}}<div class="mission-rating">{{#each (range 1 5)}}<button class="rate-btn {{#if (eq this ../myRating)}}active{{/if}}" data-rating="{{this}}">★</button>{{/each}}</div>{{/if}}
         </div>
         {{/each}}

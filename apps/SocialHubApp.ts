@@ -83,21 +83,40 @@ export class SocialHubApp extends Application {
   private getFeedData(): Record<string, unknown> {
     const uid = currentUserId();
     const gm = isGM();
+    const missions = MissionService.getAll();
+    const users = (game as Game).users;
+    const emojis = ["👍", "❤️", "😂", "😮", "😢", "🎲"];
     const posts = PostService.getAll().map((post) => ({
       ...post,
       authorName: getUserName(post.authorId),
       timeAgo: timeAgo(post.createdAt),
+      createdAtFmt: new Date(post.createdAt).toLocaleString("pt-BR"),
       canDelete: post.authorId === uid || gm,
-      reactionList: Object.entries(post.reactions).map(([emoji, users]) => ({ emoji, count: users.length, active: users.includes(uid) })),
+      reactionList: emojis.map((emoji) => {
+        const reactedUsers = post.reactions[emoji] ?? [];
+        return {
+          emoji,
+          count: reactedUsers.length,
+          active: reactedUsers.includes(uid),
+          users: reactedUsers.map((userId) => {
+            const user = users?.get(userId);
+            return {
+              id: userId,
+              name: user?.name ?? userId,
+              img: user?.character?.img ?? user?.avatar ?? "",
+            };
+          }),
+        };
+      }),
       myRating: post.meta?.rating?.[uid] ?? 0,
       ratingStats: post.type === "summary" ? PostService.getMissionRating(post) : null,
-      missionName: post.meta?.missionId ? MissionService.getAll().find((m) => m.id === post.meta?.missionId)?.title ?? "—" : null,
+      missionName: post.meta?.missionId ? missions.find((m) => m.id === post.meta?.missionId)?.title ?? "—" : null,
     }));
 
     return {
       posts,
-      missions: MissionService.getAll().map((m) => ({ id: m.id, title: m.title, sessionDateFmt: formatDate(m.sessionDate) })),
-      EMOJIS: ["👍", "❤️", "😂", "😮", "😢", "🎲"],
+      missions: missions.map((m) => ({ id: m.id, title: m.title, sessionDateFmt: formatDate(m.sessionDate) })),
+      EMOJIS: emojis,
       canCreateMission: userRole() >= ROLES.ASSISTANT,
       isGM: gm,
       duelsCount: DuelService.getAll().length,
@@ -108,7 +127,7 @@ export class SocialHubApp extends Application {
 
   private activateFeedListeners(root: HTMLElement): void {
     const typeEl = root.querySelector<HTMLSelectElement>("#social-post-type");
-    const missionEl = root.querySelector<HTMLSelectElement>("#social-post-mission");
+    const missionEl = root.querySelector<HTMLSelectElement>('select[name="missionId"]');
     const syncMissionSelectVisibility = (): void => {
       if (!missionEl || !typeEl) return;
       missionEl.style.display = typeEl.value === "summary" ? "inline-block" : "none";
