@@ -23,6 +23,7 @@ export interface Mission {
   platforms: string[];
   sessionDate: string;
   sessionTime: string;
+  sessionNumber: number;
   maxSlots: number;
   reserveSlots: number;
   participants: string[];

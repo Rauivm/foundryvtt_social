@@ -138,6 +138,7 @@ export class MissionService {
       platforms: input.platforms ?? [],
       sessionDate: input.sessionDate ?? "",
       sessionTime: input.sessionTime ?? "20:00",
+      sessionNumber: Number(input.sessionNumber || 0),
       maxSlots: Math.max(1, input.maxSlots ?? 6),
       reserveSlots: Math.max(0, input.reserveSlots ?? 2),
       participants: [],

@@ -15,22 +15,40 @@ export class MissionsTab implements SocialTab {
     const gm = isGM();
     return {
       canCreateMission: userRole() >= ROLES.ASSISTANT,
-      missions: MissionService.getAll().map((m) => ({
-        ...m,
-        sessionDateFmt: formatDate(m.sessionDate),
-        creatorName: getUserName(m.createdBy),
-        userStatus: MissionService.getUserStatus(m, uid),
-        canManage: m.createdBy === uid || gm,
-      })),
+      missions: MissionService.getAll().map((m) => {
+        const canManage = m.createdBy === uid || gm;
+        const isOpen = m.status === "open";
+        return {
+          ...m,
+          sessionDateFmt: formatDate(m.sessionDate),
+          creatorName: getUserName(m.createdBy),
+          userStatus: MissionService.getUserStatus(m, uid),
+          canManage,
+          canClose: canManage,
+          canEdit: isOpen && canManage,
+          canDelete: isOpen && canManage,
+        };
+      }),
     };
   }
 
   activateListeners(root: HTMLElement): void {
     root.querySelector("#mission-create-btn")?.addEventListener("click", () => this.openCreateDialog());
+
+    root.querySelectorAll(".mission-desc").forEach((elm) => {
+      elm.addEventListener("click", () => {
+        elm.classList.toggle("expanded");
+      });
+    });
+
     bindClick(root, ".mission-join-btn", async (btn) => MissionService.join(getClosestDataId(btn, "data-mission-id")));
     bindClick(root, ".mission-leave-btn", async (btn) => MissionService.leave(getClosestDataId(btn, "data-mission-id")));
     bindClick(root, ".mission-close-btn", async (btn) => MissionService.close(getClosestDataId(btn, "data-mission-id")));
-    bindClick(root, ".delete-mission-btn", (btn) => {
+    bindClick(root, ".mission-edit-btn", (btn) => {
+      const missionId = getClosestDataId(btn, "data-mission-id");
+      this.openEditDialog(missionId);
+    });
+    bindClick(root, ".mission-delete-btn", (btn) => {
       const missionId = getClosestDataId(btn, "data-mission-id");
       confirmDialog("Excluir missão", "<p>Tem certeza que deseja excluir esta missão?</p>", async () => MissionService.delete(missionId));
     });
@@ -47,6 +65,7 @@ export class MissionsTab implements SocialTab {
           <div class="form-group"><label>Faixa etária</label><input name="age" type="text" value="Livre" /></div>
           <div class="form-group"><label>Plataformas (vírgula)</label><input name="platforms" type="text" /></div>
           <div class="form-group form-row"><div><label>Data</label><input name="sessionDate" type="date" /></div><div><label>Hora</label><input name="sessionTime" type="time" value="20:00" /></div></div>
+          <div class="form-group"><label>Sessão #</label><input type="number" name="sessionNumber" placeholder="Sessão #" /></div>
           <div class="form-group form-row"><div><label>Vagas</label><input name="maxSlots" type="number" value="6" min="1" /></div><div><label>Reservas</label><input name="reserveSlots" type="number" value="2" min="0" /></div></div>
         </form>`,
       buttons: {
@@ -65,6 +84,7 @@ export class MissionsTab implements SocialTab {
               platforms: String(data.platforms ?? "").split(",").map((s) => s.trim()).filter(Boolean),
               sessionDate: String(data.sessionDate ?? ""),
               sessionTime: String(data.sessionTime ?? "20:00"),
+              sessionNumber: Number(data.sessionNumber || 0),
               maxSlots: parseInt(String(data.maxSlots ?? "6"), 10),
               reserveSlots: parseInt(String(data.reserveSlots ?? "2"), 10),
             });
@@ -73,6 +93,51 @@ export class MissionsTab implements SocialTab {
         cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancelar" },
       },
       default: "create",
+    });
+  }
+
+  private openEditDialog(missionId: string): void {
+    const mission = MissionService.getAll().find((m) => m.id === missionId);
+    if (!mission) return;
+
+    openFormDialog({
+      title: "Editar Missão",
+      content: `
+        <form class="social-dialog-form">
+          <div class="form-group"><label>Título</label><input name="title" type="text" required value="${mission.title}" /></div>
+          <div class="form-group"><label>Descrição</label><textarea name="description" rows="3">${mission.description}</textarea></div>
+          <div class="form-group form-row"><div><label>Nível mín.</label><input name="levelMin" type="number" value="${mission.levelRange[0]}" min="1" max="20" /></div><div><label>Nível máx.</label><input name="levelMax" type="number" value="${mission.levelRange[1]}" min="1" max="20" /></div></div>
+          <div class="form-group"><label>Faixa etária</label><input name="age" type="text" value="${mission.age}" /></div>
+          <div class="form-group"><label>Plataformas (vírgula)</label><input name="platforms" type="text" value="${mission.platforms.join(", ")}" /></div>
+          <div class="form-group form-row"><div><label>Data</label><input name="sessionDate" type="date" value="${mission.sessionDate}" /></div><div><label>Hora</label><input name="sessionTime" type="time" value="${mission.sessionTime}" /></div></div>
+          <div class="form-group"><label>Sessão #</label><input type="number" name="sessionNumber" placeholder="Sessão #" value="${mission.sessionNumber ?? 0}" /></div>
+          <div class="form-group form-row"><div><label>Vagas</label><input name="maxSlots" type="number" value="${mission.maxSlots}" min="1" /></div><div><label>Reservas</label><input name="reserveSlots" type="number" value="${mission.reserveSlots}" min="0" /></div></div>
+        </form>`,
+      buttons: {
+        save: {
+          icon: '<i class="fas fa-save"></i>',
+          label: "Salvar",
+          callback: async (html) => {
+            const form = (html as JQuery).find("form")[0] as HTMLFormElement | undefined;
+            if (!form) return;
+            const data = parseForm<Record<string, FormDataEntryValue | null>>(form);
+            await MissionService.update(missionId, {
+              title: String(data.title ?? ""),
+              description: String(data.description ?? ""),
+              levelRange: [parseInt(String(data.levelMin ?? "1"), 10), parseInt(String(data.levelMax ?? "20"), 10)],
+              age: String(data.age ?? "Livre"),
+              platforms: String(data.platforms ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+              sessionDate: String(data.sessionDate ?? ""),
+              sessionTime: String(data.sessionTime ?? "20:00"),
+              sessionNumber: Number(data.sessionNumber || 0),
+              maxSlots: parseInt(String(data.maxSlots ?? "6"), 10),
+              reserveSlots: parseInt(String(data.reserveSlots ?? "2"), 10),
+            });
+          },
+        },
+        cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancelar" },
+      },
+      default: "save",
     });
   }
 }
