@@ -35,10 +35,3 @@
     {{#if features.patches}}{{> tabs/patches}}{{/if}}
   </div>
 </div>
-
-<script>
-  document.getElementById("social-post-type")?.addEventListener("change", function () {
-    const ms = document.getElementById("social-post-mission");
-    if (ms) ms.style.display = this.value === "summary" ? "inline-block" : "none";
-  });
-</script>
