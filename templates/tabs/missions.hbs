@@ -9,17 +9,17 @@
       <div class="mission-header"><h3>{{title}}</h3><span class="badge badge-status-{{status}}">{{statusLabel status}}</span></div>
       <div class="mission-meta">
         <span><i class="fas fa-calendar"></i> {{sessionDateFmt}} {{sessionTime}}</span>
+        <span class="mission-level">{{levelRange}}</span>
         {{#if sessionNumber}}<span class="mission-session">Sessão {{sessionNumber}}</span>{{/if}}
       </div>
       <div class="mission-desc">{{description}}</div>
-      <div class="mission-slots">{{participants.length}} / {{maxSlots}} vagas</div>
       <div class="slot-bar"><span class="slot-label">{{participants.length}}/{{maxSlots}} vagas</span></div>
       <div class="mission-actions">
         {{#if (eq userStatus "none")}}{{#unless (eq status "closed")}}<button class="mission-join-btn btn-primary">👍 Participar</button>{{/unless}}{{/if}}
         {{#if (eq userStatus "participant")}}<button class="mission-leave-btn btn-ghost">Sair</button>{{/if}}
         {{#if (eq userStatus "reserve")}}<button class="mission-leave-btn btn-ghost">Sair da reserva</button>{{/if}}
-        {{#if canEdit}}<button class="mission-edit-btn btn-ghost">✏️</button>{{/if}}
-        {{#if canDelete}}<button class="mission-delete-btn btn-ghost danger">🗑️</button>{{/if}}
+        {{#if canEdit}}<button class="icon-btn mission-edit-btn"><i class="fas fa-pencil-alt"></i></button>{{/if}}
+        {{#if canDelete}}<button class="icon-btn mission-delete-btn"><i class="fas fa-trash"></i></button>{{/if}}
         {{#if canClose}}<button class="mission-close-btn btn-ghost">Encerrar</button>{{/if}}
       </div>
     </div>

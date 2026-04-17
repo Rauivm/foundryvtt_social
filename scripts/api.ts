@@ -173,43 +173,17 @@ export class MissionService {
 
   /** Join via GM socket (atomic) */
   static async join(missionId: string): Promise<void> {
-    const missions = getMissions();
-    const mission = missions.find(m => m.id === missionId);
-
-    if (!mission) return;
-
-    const userId = currentUserId();
-
-    if (!mission.participants.includes(userId)) {
-      if (mission.participants.length < mission.maxSlots) {
-        mission.participants.push(userId);
-      } else if (mission.reserves.length < mission.reserveSlots) {
-        mission.reserves.push(userId);
-      }
-    }
-
-    await saveMissions(missions);
-
-    Hooks.callAll("social:refresh", "missions");
+    await socket.executeAsGM("mission:join", {
+      missionId,
+      userId: currentUserId(),
+    });
   }
 
   static async leave(missionId: string): Promise<void> {
-    const missions = getMissions();
-    const mission = missions.find(m => m.id === missionId);
-
-    if (!mission) return;
-
-    const userId = currentUserId();
-
-    // remove de participantes
-    mission.participants = mission.participants.filter(id => id !== userId);
-
-    // remove de reservas
-    mission.reserves = mission.reserves.filter(id => id !== userId);
-
-    await saveMissions(missions);
-
-    Hooks.callAll("social:refresh", "missions");
+    await socket.executeAsGM(SOCKET_EVENTS.MISSION_LEAVE, {
+      missionId,
+      userId: currentUserId(),
+    });
   }
 
   static async update(missionId: string, data: Partial<Mission>): Promise<void> {

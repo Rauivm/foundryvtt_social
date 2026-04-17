@@ -472,6 +472,11 @@
   color: var(--social-gold);
 }
 
+.mission-level {
+  font-size: 11px;
+  color: var(--social-gold);
+}
+
 .slot-bar {
   position: relative;
   height: 10px;
@@ -500,7 +505,7 @@
 
 .mission-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-wrap: wrap;
   margin-top: 8px;
