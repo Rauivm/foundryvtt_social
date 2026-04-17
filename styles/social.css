@@ -514,7 +514,10 @@
   top: 6px;
   right: 6px;
   display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 6px;
+  z-index: 2;
 }
 
 .gravestone-icon {
@@ -535,7 +538,8 @@
   color: var(--social-text);
 }
 .grave-date { font-size: 11px; color: var(--social-muted); margin-bottom: 6px; }
-.grave-epitaph {
+.grave-epitaph,
+.grave-info blockquote {
   font-family: var(--social-font);
   font-style: italic;
   font-size: 12px;

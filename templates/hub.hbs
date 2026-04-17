@@ -23,7 +23,7 @@
           </select>
           <select id="social-post-mission" style="display:none">
             <option value="">— vincular missão —</option>
-            {{#each missions}}
+            {{#each feedMissions}}
             <option value="{{id}}">{{title}}</option>
             {{/each}}
           </select>
@@ -230,9 +230,10 @@
           <div class="grave-info">
             <h3 class="grave-name">{{name}}</h3>
             <p class="grave-date">Caiu em {{deathDateFmt}}</p>
-            {{#if epitaph}}<blockquote class="grave-epitaph">"{{truncate epitaph 80}}"</blockquote>
-              <button class="grave-open-btn btn-ghost">Ver lápide</button>
+            {{#if epitaph}}
+              <blockquote>{{truncate epitaph 80}}</blockquote>
             {{/if}}
+            <button class="grave-open-btn btn-ghost">Ver lápide</button>
 
             <div class="f-section">
               <button class="f-btn {{#if hasRespected}}f-pressed{{/if}}">
@@ -281,10 +282,4 @@
   </div>{{!-- .social-content --}}
 </div>{{!-- .social-hub-window --}}
 
-<script>
-  // Show/hide mission select when type = summary
-  document.getElementById("social-post-type")?.addEventListener("change", function () {
-    const ms = document.getElementById("social-post-mission");
-    if (ms) ms.style.display = this.value === "summary" ? "inline-block" : "none";
-  });
-</script>
+

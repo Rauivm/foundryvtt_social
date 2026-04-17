@@ -913,19 +913,34 @@ class SocialHubApp extends Application {
         super.activateListeners(html);
         const el = html[0];
         // ── Feed ──────────────────────────────────────────────────────────────────
+        const typeEl = el.querySelector("#social-post-type");
+        const missionEl = el.querySelector("#social-post-mission");
+        const syncMissionLinkVisibility = () => {
+            if (!typeEl || !missionEl)
+                return;
+            const shouldShowMission = typeEl.value === "summary";
+            missionEl.style.display = shouldShowMission ? "inline-block" : "none";
+            missionEl.disabled = !shouldShowMission;
+            if (!shouldShowMission)
+                missionEl.value = "";
+        };
+        typeEl?.addEventListener("change", syncMissionLinkVisibility);
+        syncMissionLinkVisibility();
         el.querySelector("#social-post-submit")?.addEventListener("click", async () => {
             const ta = el.querySelector("#social-post-content");
-            const typeEl = el.querySelector("#social-post-type");
-            const missionEl = el.querySelector("#social-post-mission");
             if (!ta?.value.trim())
                 return;
             try {
+                const postType = typeEl?.value ?? "post";
+                const missionId = missionEl?.value?.trim();
                 await PostService.create({
                     content: ta.value,
-                    type: typeEl?.value ?? "post",
-                    meta: typeEl?.value === "summary" && missionEl?.value ? { missionId: missionEl.value } : undefined,
+                    type: postType,
+                    meta: postType === "summary" && missionId ? { missionId } : undefined,
                 });
                 ta.value = "";
+                if (missionEl)
+                    missionEl.value = "";
             }
             catch (e) {
                 ui.notifications?.error(String(e));
@@ -1058,26 +1073,32 @@ class SocialHubApp extends Application {
             });
         });
         // ── Graveyard ─────────────────────────────────────────────────────────────
-        function spawnFlower(container) {
-            const flower = document.createElement("div");
-            flower.className = "rose-fx";
-            flower.textContent = "🌹";
-            // leve variação horizontal
-            flower.style.left = `${40 + Math.random() * 20}%`;
-            container.appendChild(flower);
-            setTimeout(() => flower.remove(), 1500);
+        function spawnRose(container) {
+            const rose = document.createElement("div");
+            rose.className = "rose-fx";
+            rose.textContent = "🌹";
+            rose.style.left = `${40 + Math.random() * 20}%`;
+            container.appendChild(rose);
+            rose.addEventListener("animationend", () => rose.remove(), { once: true });
         }
         el.querySelector("#grave-add-btn")?.addEventListener("click", () => {
             new GraveAddDialog().render(true);
         });
-        el.querySelectorAll(".f-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const graveEl = btn.closest("[data-grave-id]");
+        if (!el.dataset.socialRespectBound) {
+            el.dataset.socialRespectBound = "true";
+            el.addEventListener("click", async (event) => {
+                const target = event.target;
+                const respectBtn = target?.closest(".f-btn");
+                if (!respectBtn)
+                    return;
+                const graveEl = respectBtn.closest("[data-grave-id]");
                 const graveId = graveEl?.getAttribute("data-grave-id") ?? "";
+                if (!graveId || !graveEl)
+                    return;
                 await GraveService.respect(graveId);
-                spawnFlower(graveEl);
+                spawnRose(graveEl);
             });
-        });
+        }
         el.querySelectorAll(".grave-open-btn").forEach((btn) => {
             btn.addEventListener("click", () => {
                 const graveEl = btn.closest("[data-grave-id]");
@@ -1189,7 +1210,8 @@ class SocialHubApp extends Application {
                 ? (MissionService.getAll().find((m) => m.id === post.meta?.missionId)?.title ?? "—")
                 : null,
         }));
-        const missions = MissionService.getAll().map((m) => ({
+        const allMissions = MissionService.getAll();
+        const missions = allMissions.map((m) => ({
             ...m,
             sessionDateFmt: formatDate(m.sessionDate),
             creatorName: getUserName(m.createdBy),
@@ -1197,6 +1219,9 @@ class SocialHubApp extends Application {
             isFull: m.participants.length >= m.maxSlots,
             canManage: m.createdBy === uid || gm,
         }));
+        const feedMissions = allMissions
+            .filter((m) => m.status !== "closed")
+            .map((m) => ({ id: m.id, title: m.title }));
         const polls = PollService.getAll().map((poll) => {
             const total = PollService.getTotalVotes(poll);
             return {
@@ -1227,6 +1252,7 @@ class SocialHubApp extends Application {
         return {
             posts,
             missions,
+            feedMissions,
             polls,
             graves,
             patches,
