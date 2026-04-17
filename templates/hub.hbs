@@ -31,11 +31,16 @@
       <div class="feed-list">
         {{#each posts}}
         <div class="post-card card" data-post-id="{{id}}">
-          <div class="post-actions">
-            {{#if canEdit}}<button class="edit-post-btn post-edit-btn icon-btn"><i class="fas fa-pen"></i></button>{{/if}}
-            {{#if canDelete}}<button class="delete-post-btn post-delete-btn icon-btn"><i class="fas fa-trash"></i></button>{{/if}}
+          <div class="post-header">
+            <div class="post-author">{{authorName}}</div>
+            <div class="post-meta">
+              <span class="post-date">{{createdAtFmt}}</span>
+              <div class="post-actions">
+                {{#if canEdit}}<button class="edit-post-btn post-edit-btn icon-btn"><i class="fas fa-pen"></i></button>{{/if}}
+                {{#if canDelete}}<button class="delete-post-btn post-delete-btn icon-btn"><i class="fas fa-trash"></i></button>{{/if}}
+              </div>
+            </div>
           </div>
-          <div class="post-header"><span class="post-author">{{authorName}}</span><span class="post-date">{{createdAtFmt}}</span></div>
           <div class="post-body">{{{content}}}</div>
           {{#if missionName}}<div class="post-mission">Missão vinculada: {{missionName}}</div>{{/if}}
           <div class="post-reactions">

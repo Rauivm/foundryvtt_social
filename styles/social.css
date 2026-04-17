@@ -258,25 +258,27 @@
   position: relative;
 }
 
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.post-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .post-actions {
-  position: absolute;
-  top: 8px;
-  right: 8px;
   display: flex;
   gap: 6px;
 }
 
 .post-actions button {
   position: relative;
-}
-
-.post-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-  padding-right: 64px;
 }
 .post-avatar {
   width: 36px;
@@ -292,7 +294,6 @@
   flex-shrink: 0;
   text-transform: uppercase;
 }
-.post-meta { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .post-author { font-size: 13px; font-weight: 600; color: var(--social-text); }
 .post-time { font-size: 11px; color: var(--social-muted); }
 .post-date { font-size: 11px; color: var(--social-muted); white-space: nowrap; }
@@ -448,10 +449,27 @@
   margin-bottom: 10px;
   line-height: 1.5;
   opacity: .85;
-  white-space: normal;
-  overflow: visible;
-  max-height: none;
   word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.mission-desc.expanded {
+  -webkit-line-clamp: unset;
+}
+
+.mission-slots {
+  font-size: 12px;
+  color: var(--social-muted);
+  margin-bottom: 6px;
+}
+
+.mission-session {
+  font-size: 11px;
+  color: var(--social-gold);
 }
 
 .slot-bar {
