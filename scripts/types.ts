@@ -4,6 +4,7 @@ export interface Post {
   id: string;
   authorId: string;
   content: string;
+  mentions: string[];
   createdAt: number;
   reactions: Record<string, string[]>; // emoji -> userIds
   type: "post" | "summary" | "patch";
