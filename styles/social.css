@@ -258,15 +258,16 @@
   position: relative;
 }
 
-.post-delete-btn {
+.post-actions {
   position: absolute;
   top: 8px;
   right: 8px;
+  display: flex;
+  gap: 6px;
 }
-.post-edit-btn {
-  position: absolute;
-  top: 8px;
-  right: 36px;
+
+.post-actions button {
+  position: relative;
 }
 
 .post-header {
@@ -297,13 +298,14 @@
 .post-date { font-size: 11px; color: var(--social-muted); white-space: nowrap; }
 .post-body { font-size: 13px; line-height: 1.65; color: var(--social-text); margin-bottom: 10px; }
 .post-body .spoiler {
-  background: #111;
-  color: #111;
+  background: #000;
+  color: transparent;
+  cursor: pointer;
   border-radius: 4px;
   padding: 0 4px;
 }
-.post-body .spoiler:hover {
-  color: #f0f0f0;
+.post-body .spoiler.revealed {
+  color: #fff;
 }
 .post-body .mention {
   color: var(--social-accent);
