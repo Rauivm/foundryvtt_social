@@ -6,9 +6,10 @@
 import { registerSettings, hydrateIndexes } from "./settings";
 import { registerSockets } from "./sockets";
 import { registerHelpers } from "./helpers";
+import { registerTemplatePartials } from "./templates";
 import { SocialHubApp } from "../apps/SocialHubApp";
 import { isGM } from "./types";
-import { PollService, MissionService, GraveService, PostService } from "./api";
+import { PollService, MissionService, GraveService, PostService, DuelService } from "./api";
 
 
 const MODULE_ID = "foundryvtt-social";
@@ -23,6 +24,7 @@ Hooks.once("init", () => {
   console.log(`${MODULE_ID} | init`);
   registerSettings();
   registerHelpers();
+  void registerTemplatePartials();
   //registerSockets();
 });
 
@@ -53,6 +55,7 @@ Hooks.once("ready", () => {
     MissionService,
     GraveService,
     PostService,
+    DuelService,
   };
 });
 

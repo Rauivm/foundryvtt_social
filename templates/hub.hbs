@@ -1,288 +1,42 @@
-{{!-- hub.hbs – Main Social Hub window --}}
 <div class="social-hub-window">
-
-  {{!-- Tab navigation --}}
   <nav class="social-tabs tabs" data-group="social">
     <a class="item" data-tab="feed"><i class="fas fa-scroll"></i> Feed</a>
-    <a class="item" data-tab="missions"><i class="fas fa-map-marked-alt"></i> Missões</a>
-    <a class="item" data-tab="polls"><i class="fas fa-poll"></i> Enquetes</a>
-    <a class="item" data-tab="graveyard"><i class="fas fa-cross"></i> Cemitério</a>
-    <a class="item" data-tab="patches"><i class="fas fa-scroll"></i> Patch Notes</a>
+    {{#each navTabs}}
+    <a class="item" data-tab="{{id}}"><i class="{{icon}}"></i> {{label}}</a>
+    {{/each}}
   </nav>
 
   <div class="social-content">
-
-    {{!-- ═══════════════════════════════ FEED ══════════════════════════════════ --}}
     <div class="tab" data-tab="feed">
       <div class="social-compose card">
         <textarea id="social-post-content" placeholder="Compartilhe algo com o reino…" rows="3"></textarea>
         <div class="compose-row">
-          <select id="social-post-type">
-            <option value="post">Publicação</option>
-            <option value="summary">Resumo de Sessão</option>
-          </select>
-          <select id="social-post-mission" style="display:none">
-            <option value="">— vincular missão —</option>
-            {{#each missions}}
-            <option value="{{id}}">{{title}}</option>
-            {{/each}}
-          </select>
+          <select id="social-post-type"><option value="post">Publicação</option><option value="summary">Resumo de Sessão</option></select>
+          <select id="social-post-mission" style="display:none"><option value="">— vincular missão —</option>{{#each missions}}<option value="{{id}}">{{title}}</option>{{/each}}</select>
           <button id="social-post-submit" class="btn-primary"><i class="fas fa-paper-plane"></i> Publicar</button>
         </div>
       </div>
-
       <div class="feed-list">
         {{#each posts}}
         <div class="post-card card" data-post-id="{{id}}">
-          <div class="post-header">
-            <div class="post-avatar" style="background:var(--social-accent)">{{abbrev authorName}}</div>
-            <div class="post-meta">
-              <span class="post-author">{{authorName}}</span>
-              {{#if (eq type "summary")}}<span class="badge badge-summary">Resumo{{#if missionName}} · {{missionName}}{{/if}}</span>{{/if}}
-              <span class="post-time">{{timeAgo}}</span>
-            </div>
-            {{#if canDelete}}
-            <button class="delete-post-btn icon-btn" title="Excluir"><i class="fas fa-trash"></i></button>
-            {{/if}}
-          </div>
-
+          <div class="post-header"><span class="post-author">{{authorName}}</span>{{#if canDelete}}<button class="delete-post-btn icon-btn"><i class="fas fa-trash"></i></button>{{/if}}</div>
           <div class="post-body">{{{content}}}</div>
-
-          {{!-- Reactions --}}
-          <div class="post-reactions">
-            {{#each reactionList}}
-            <button class="react-btn {{#if active}}active{{/if}}" data-emoji="{{emoji}}">
-              {{emoji}} {{count}}
-            </button>
-            {{/each}}
-            <div class="emoji-picker-trigger">
-              <span>+</span>
-              <div class="emoji-picker">
-                {{#each ../EMOJIS}}<button class="react-btn emoji-opt" data-emoji="{{this}}">{{this}}</button>{{/each}}
-              </div>
-            </div>
-          </div>
-
-          {{!-- Mission rating (only for summaries) --}}
-          {{#if (eq type "summary")}}
-          <div class="mission-rating">
-            <span class="rating-label">Avaliar missão:</span>
-            {{#each (range 1 5)}}
-            <button class="rate-btn {{#if (eq this ../myRating)}}active{{/if}}" data-rating="{{this}}">★</button>
-            {{/each}}
-            {{#if ratingStats.count}}
-            <span class="rating-stats">{{ratingStats.avg}}⭐ ({{ratingStats.count}} votos)</span>
-            {{/if}}
-          </div>
-          {{/if}}
+          <div class="post-reactions">{{#each reactionList}}<button class="react-btn {{#if active}}active{{/if}}" data-emoji="{{emoji}}">{{emoji}} {{count}}</button>{{/each}}</div>
+          {{#if (eq type "summary")}}<div class="mission-rating">{{#each (range 1 5)}}<button class="rate-btn {{#if (eq this ../myRating)}}active{{/if}}" data-rating="{{this}}">★</button>{{/each}}</div>{{/if}}
         </div>
-        {{else}}
-        <div class="empty-state"><i class="fas fa-feather-alt"></i><p>Nenhuma publicação ainda.</p></div>
         {{/each}}
       </div>
     </div>
 
-    {{!-- ═══════════════════════════════ MISSIONS ══════════════════════════════ --}}
-    <div class="tab" data-tab="missions">
-      {{#if canCreateMission}}
-      <div class="tab-header">
-        <button id="mission-create-btn" class="btn-primary"><i class="fas fa-plus"></i> Nova Missão</button>
-      </div>
-      {{/if}}
-
-      <div class="missions-grid">
-        {{#each missions}}
-        <div class="mission-card card status-{{status}}" data-mission-id="{{id}}">
-          <div class="mission-header">
-            <h3>{{title}}</h3>
-            <span class="badge badge-status-{{status}}">{{statusLabel status}}</span>
-          </div>
-          <div class="mission-meta">
-            <span><i class="fas fa-layer-group"></i> Nível {{levelRange.[0]}}–{{levelRange.[1]}}</span>
-            <span><i class="fas fa-birthday-cake"></i> {{age}}</span>
-            {{#if platforms.length}}
-            <span><i class="fas fa-desktop"></i> {{join platforms ", "}}</span>
-            {{/if}}
-            <span><i class="fas fa-calendar"></i> {{sessionDateFmt}} {{sessionTime}}</span>
-          </div>
-          {{#if description}}<div class="mission-desc">{{{nl2br description}}}</div>{{/if}}
-
-          <div class="slot-bar">
-            <div class="slot-fill" style="width:50%"></div>
-            <span class="slot-label">{{participants.length}}/{{maxSlots}} vagas {{#if reserves.length}}(+{{reserves.length}} reservas){{/if}}</span>
-          </div>
-
-          <div class="mission-actions">
-{{!--             {{#if canManage}}
-              <div class="mission-actions">
-                <button class="edit-mission-btn btn-ghost">Editar</button>
-                <button class="delete-mission-btn btn-ghost danger">Excluir</button>
-              </div>
-            {{/if}} --}}
-
-            {{#if (eq userStatus "none")}}
-              {{#unless (eq status "closed")}}
-              <button class="mission-join-btn btn-primary">👍 Participar</button>
-              {{/unless}}
-            {{else if (eq userStatus "participant")}}
-              <span class="badge badge-success">✓ Confirmado</span>
-              <button class="mission-leave-btn btn-ghost">Sair</button>
-            {{else if (eq userStatus "reserve")}}
-              <span class="badge badge-warn">⏳ Reserva</span>
-              <button class="mission-leave-btn btn-ghost">Sair da reserva</button>
-            {{/if}}
-
-            {{#if canManage}}
-            <button class="mission-close-btn btn-ghost">Encerrar</button>
-            {{/if}}
-
-            {{#if canManage}}
-            <div class="mission-admin-actions">
-              <button class="edit-mission-btn icon-btn" title="Editar">
-                <i class="fas fa-pencil-alt"></i>
-              </button>
-              <button class="delete-mission-btn icon-btn danger" title="Excluir">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-            {{/if}}
-          </div>
-        </div>
-        {{else}}
-        <div class="empty-state"><i class="fas fa-map"></i><p>Nenhuma missão disponível.</p></div>
-        {{/each}}
-      </div>
-    </div>
-
-    {{!-- ═══════════════════════════════ POLLS ════════════════════════════════ --}}
-    <div class="tab" data-tab="polls">
-      <div class="tab-header">
-        <button id="poll-create-btn" class="btn-primary"><i class="fas fa-plus"></i> Nova Enquete</button>
-      </div>
-
-      <div class="polls-list">
-        {{#each polls}}
-        <div class="poll-card card {{#if closed}}poll-closed{{/if}} {{#if isExpired}}poll-expired{{/if}}" data-poll-id="{{id}}">
-          <div class="poll-header">
-            <h3>{{question}}</h3>
-            <div class="poll-badges">
-              {{#if multiple}}<span class="badge">Multi-voto</span>{{/if}}
-              {{#if closed}}<span class="badge badge-closed">Encerrada</span>{{/if}}
-              {{#if isExpired}}<span class="badge badge-expired">Expirada</span>{{/if}}
-              {{#if endsAt}}<span class="badge">⏰ {{formatDate endsAt}}</span>{{/if}}
-            </div>
-          </div>
-          <p class="poll-meta">Por {{creatorName}} · {{timeAgo}} · {{total}} voto(s)</p>
-
-          <div class="poll-options">
-            {{#each options}}
-            <div class="poll-option">
-              <button class="vote-option-btn {{#if hasVoted}}voted{{/if}}" data-option-id="{{id}}"
-                {{#if (or ../closed ../isExpired)}}disabled{{/if}}>
-                <span class="option-text">{{text}}</span>
-                <span class="option-votes">{{voteCount}} ({{percent}}%)</span>
-              </button>
-              <div class="option-bar"><div class="option-fill" style="width:{{percent}}%"></div></div>
-            </div>
-            {{/each}}
-          </div>
-
-          <div class="poll-footer">
-            {{#if canClose}}{{#unless closed}}<button class="poll-close-btn btn-ghost">Encerrar</button>{{/unless}}{{/if}}
-            {{#if canDelete}}<button class="delete-poll-btn btn-ghost danger" data-poll-id="{{id}}">Excluir</button>{{/if}}
-          </div>
-        </div>
-        {{else}}
-        <div class="empty-state"><i class="fas fa-poll"></i><p>Nenhuma enquete ativa.</p></div>
-        {{/each}}
-      </div>
-    </div>
-
-    {{!-- ══════════════════════════════ GRAVEYARD ═══════════════════════════════ --}}
-    <div class="tab" data-tab="graveyard">
-      {{#if isGM}}
-      <div class="tab-header">
-        <button id="grave-add-btn" class="btn-primary"><i class="fas fa-plus"></i> Registrar Morte</button>
-      </div>
-      {{/if}}
-
-      <div class="cemetery-header">
-        <i class="fas fa-cross"></i>
-        <h2>Cemitério dos Heróis Caídos</h2>
-        <p>Que suas memórias vivam para sempre nestas terras</p>
-      </div>
-
-      <div class="cemetery-grid">
-        {{#each graves}}
-        <div class="grave-card card" data-grave-id="{{id}}">
-            {{!-- AÇÕES (GM ONLY) --}}
-            {{#if @root.isGM}}
-              <div class="grave-actions">
-                <button class="edit-grave-btn icon-btn" title="Editar">
-                  <i class="fas fa-pencil-alt"></i>
-                </button>
-                <button class="delete-grave-btn icon-btn danger" title="Excluir">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
-            {{/if}}
-          <div class="gravestone-icon">✝</div>
-          <div class="grave-info">
-            <h3 class="grave-name">{{name}}</h3>
-            <p class="grave-date">Caiu em {{deathDateFmt}}</p>
-            {{#if epitaph}}<blockquote class="grave-epitaph">"{{truncate epitaph 80}}"</blockquote>
-              <button class="grave-open-btn btn-ghost">Ver lápide</button>
-            {{/if}}
-
-            <div class="f-section">
-              <button class="f-btn {{#if hasRespected}}f-pressed{{/if}}">
-                {{#if hasRespected}}🌹 — Homenageado{{else}}🌹 Prestar Respeito{{/if}}
-              </button>
-              <!--<span class="f-count">{{respectCount}} homenagens</span>-->
-              <span class="f-count">{{{roseCounter respectCount}}}</span>
-              {{#if topRespecters}}<span class="f-names">{{topRespecters}}</span>{{/if}}
-            </div>
-          </div>
-{{!--           {{#if canDelete}}
-          <button class="delete-grave-btn icon-btn" title="Remover"><i class="fas fa-trash"></i></button>
-          {{/if}} --}}
-        </div>
-        {{else}}
-        <div class="empty-state"><i class="fas fa-wind"></i><p>Nenhum herói caiu ainda.</p></div>
-        {{/each}}
-      </div>
-    </div>
-
-    {{!-- ═════════════════════════════ PATCH NOTES ═════════════════════════════ --}}
-    <div class="tab" data-tab="patches">
-      {{#if isGM}}
-      <div class="tab-header">
-        <button id="patch-create-btn" class="btn-primary"><i class="fas fa-plus"></i> Publicar Update</button>
-      </div>
-      {{/if}}
-
-      <div class="patches-list">
-        {{#each patches}}
-        <div class="patch-card card">
-          <div class="patch-header">
-            <span class="patch-version">v{{version}}</span>
-            <h3>{{#if title}}{{title}}{{else}}Atualização {{version}}{{/if}}</h3>
-            <span class="patch-date">{{formatDate createdAt}}</span>
-          </div>
-          <div class="patch-body">{{{content}}}</div>
-          {{#if link}}<a class="patch-link" href="{{link}}" target="_blank"><i class="fas fa-external-link-alt"></i> Ver changelog completo</a>{{/if}}
-        </div>
-        {{else}}
-        <div class="empty-state"><i class="fas fa-scroll"></i><p>Nenhuma nota de atualização.</p></div>
-        {{/each}}
-      </div>
-    </div>
-
-  </div>{{!-- .social-content --}}
-</div>{{!-- .social-hub-window --}}
+    {{#if features.missions}}{{> tabs/missions}}{{/if}}
+    {{#if features.graveyard}}{{> tabs/graveyard}}{{/if}}
+    {{#if features.polls}}{{> tabs/polls}}{{/if}}
+    {{#if features.arena}}{{> tabs/arena}}{{/if}}
+    {{#if features.patches}}{{> tabs/patches}}{{/if}}
+  </div>
+</div>
 
 <script>
-  // Show/hide mission select when type = summary
   document.getElementById("social-post-type")?.addEventListener("change", function () {
     const ms = document.getElementById("social-post-mission");
     if (ms) ms.style.display = this.value === "summary" ? "inline-block" : "none";

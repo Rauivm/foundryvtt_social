@@ -1,4 +1,4 @@
-const MODULE_ID$2 = "foundryvtt-social";
+const MODULE_ID$3 = "foundryvtt-social";
 // ─── Setting keys ─────────────────────────────────────────────────────────────
 const KEYS = {
     POSTS: "posts",
@@ -6,6 +6,7 @@ const KEYS = {
     POLLS: "polls",
     GRAVES: "graves",
     PATCHES: "patches",
+    DUELS: "duels",
 };
 // ─── In-memory indexes for O(1) reads ─────────────────────────────────────────
 const indexes = {
@@ -14,6 +15,7 @@ const indexes = {
     polls: new Map(),
     graves: new Map(),
     patches: new Map(),
+    duels: new Map(),
 };
 function buildIndex(map, items) {
     map.clear();
@@ -29,9 +31,10 @@ function registerSettings() {
         [KEYS.POLLS, []],
         [KEYS.GRAVES, []],
         [KEYS.PATCHES, []],
+        [KEYS.DUELS, []],
     ];
     for (const [key, def] of defs) {
-        g.settings.register(MODULE_ID$2, key, {
+        g.settings.register(MODULE_ID$3, key, {
             scope: "world",
             config: false,
             type: Array,
@@ -41,10 +44,10 @@ function registerSettings() {
 }
 // ─── Generic CRUD helpers ─────────────────────────────────────────────────────
 function getAll(key) {
-    return game.settings.get(MODULE_ID$2, key) ?? [];
+    return game.settings.get(MODULE_ID$3, key) ?? [];
 }
 async function saveAll(key, items) {
-    await game.settings.set(MODULE_ID$2, key, items);
+    await game.settings.set(MODULE_ID$3, key, items);
 }
 // ─── Typed accessors ─────────────────────────────────────────────────────────
 function getPosts() {
@@ -86,6 +89,13 @@ async function savePatchNotes(patches) {
     await saveAll(KEYS.PATCHES, patches);
     buildIndex(indexes.patches, patches);
 }
+function getDuels() {
+    return getAll(KEYS.DUELS);
+}
+async function saveDuels(duels) {
+    await saveAll(KEYS.DUELS, duels);
+    buildIndex(indexes.duels, duels);
+}
 // ─── Hydrate indexes on ready ─────────────────────────────────────────────────
 function hydrateIndexes() {
     buildIndex(indexes.posts, getPosts());
@@ -93,6 +103,7 @@ function hydrateIndexes() {
     buildIndex(indexes.polls, getPolls());
     buildIndex(indexes.graves, getGraves());
     buildIndex(indexes.patches, getPatchNotes());
+    buildIndex(indexes.duels, getDuels());
 }
 
 /**
@@ -496,6 +507,22 @@ function registerHelpers() {
     });
 }
 
+const MODULE_ID$2 = "foundryvtt-social";
+const PARTIALS = {
+    "tabs/missions": `modules/${MODULE_ID$2}/templates/tabs/missions.hbs`,
+    "tabs/graveyard": `modules/${MODULE_ID$2}/templates/tabs/graveyard.hbs`,
+    "tabs/polls": `modules/${MODULE_ID$2}/templates/tabs/polls.hbs`,
+    "tabs/arena": `modules/${MODULE_ID$2}/templates/tabs/arena.hbs`,
+    "tabs/patches": `modules/${MODULE_ID$2}/templates/tabs/patches.hbs`,
+};
+async function registerTemplatePartials() {
+    await loadTemplates(Object.values(PARTIALS));
+    for (const [name, path] of Object.entries(PARTIALS)) {
+        const tpl = await getTemplate(path);
+        Handlebars.registerPartial(name, tpl);
+    }
+}
+
 // ─── Data Models ─────────────────────────────────────────────────────────────
 // ─── Role helpers ─────────────────────────────────────────────────────────────
 const ROLES = {
@@ -867,9 +894,45 @@ class PatchService {
         Hooks.callAll("social:refresh", "patches");
     }
 }
+// ─── DuelService ──────────────────────────────────────────────────────────────
+class DuelService {
+    static getAll() {
+        return getDuels().sort((a, b) => b.createdAt - a.createdAt);
+    }
+    static async create(opponentId) {
+        const player1Id = currentUserId();
+        if (!player1Id || !opponentId || opponentId === player1Id)
+            throw new Error("invalid_duel");
+        const duel = {
+            id: foundry.utils.randomID(),
+            player1Id,
+            player2Id: opponentId,
+            createdAt: Date.now(),
+        };
+        const duels = getDuels();
+        duels.push(duel);
+        await saveDuels(duels);
+        Hooks.callAll("social:refresh", "arena");
+    }
+    static async finish(duelId, winnerId) {
+        if (!winnerId)
+            throw new Error("invalid_winner");
+        const duels = getDuels();
+        const duel = duels.find((item) => item.id === duelId);
+        if (!duel)
+            return;
+        if (winnerId !== duel.player1Id && winnerId !== duel.player2Id)
+            throw new Error("invalid_winner");
+        duel.winnerId = winnerId;
+        duel.finishedAt = Date.now();
+        await saveDuels(duels);
+        Hooks.callAll("social:refresh", "arena");
+    }
+}
 
 var api = /*#__PURE__*/Object.freeze({
     __proto__: null,
+    DuelService: DuelService,
     GraveService: GraveService,
     MissionService: MissionService,
     PatchService: PatchService,
@@ -877,326 +940,333 @@ var api = /*#__PURE__*/Object.freeze({
     PostService: PostService
 });
 
-/**
- * SocialHubApp.ts
- * Main Application shell: sidebar button → tabbed window.
- */
-const MODULE_ID$1 = "foundryvtt-social";
-class SocialHubApp extends Application {
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            id: "social-hub",
-            title: "Social Hub",
-            template: `modules/${MODULE_ID$1}/templates/hub.hbs`,
-            width: 720,
-            height: 640,
-            resizable: true,
-            classes: ["social-hub"],
-            tabs: [
-                {
-                    navSelector: ".social-tabs",
-                    contentSelector: ".social-content",
-                    initial: "feed",
-                },
-            ],
+const FEATURES = {
+    missions: true,
+    graveyard: true,
+    polls: true,
+    arena: true,
+    patches: true,
+};
+
+function bindClick(root, selector, handler) {
+    const nodes = root.querySelectorAll(selector);
+    nodes.forEach((node) => {
+        node.addEventListener("click", (ev) => {
+            void handler(node, ev);
         });
+    });
+}
+function getClosestDataId(element, attr) {
+    return element.closest(`[${attr}]`)?.getAttribute(attr) ?? "";
+}
+function parseForm(form) {
+    const data = new FormData(form);
+    const result = {};
+    data.forEach((value, key) => {
+        result[key] = value;
+    });
+    return result;
+}
+
+class ArenaTab {
+    constructor() {
+        this.id = "arena";
+        this.label = "Arena";
+        this.icon = "fas fa-khanda";
     }
-    constructor(options = {}) {
-        super(options);
-        this._currentTab = "feed";
-        this._refreshHandler = debounce((tab) => {
-            if (this.rendered)
-                this.render(false);
-        }, 200);
+    getData() {
+        const g = game;
+        const duels = DuelService.getAll().map((duel) => {
+            const player1 = g.users?.get(duel.player1Id)?.name ?? "Desconhecido";
+            const player2 = g.users?.get(duel.player2Id)?.name ?? "Desconhecido";
+            const p1Won = duel.winnerId === duel.player1Id;
+            const p2Won = duel.winnerId === duel.player2Id;
+            return {
+                ...duel,
+                player1,
+                player2,
+                statusLeft: duel.winnerId ? (p1Won ? "🏆" : "❌") : "—",
+                statusRight: duel.winnerId ? (p2Won ? "🏆" : "❌") : "—",
+            };
+        });
+        const opponents = (g.users?.contents ?? [])
+            .filter((u) => u.id !== currentUserId())
+            .map((u) => ({ id: u.id, name: u.name }));
+        return { duels, opponents };
     }
-    activateListeners(html) {
-        super.activateListeners(html);
-        const el = html[0];
-        // ── Feed ──────────────────────────────────────────────────────────────────
-        el.querySelector("#social-post-submit")?.addEventListener("click", async () => {
-            const ta = el.querySelector("#social-post-content");
-            const typeEl = el.querySelector("#social-post-type");
-            const missionEl = el.querySelector("#social-post-mission");
-            if (!ta?.value.trim())
+    activateListeners(root) {
+        root.querySelector("#duel-create-btn")?.addEventListener("click", async () => {
+            const select = root.querySelector("#duel-opponent");
+            const opponentId = select?.value ?? "";
+            if (!opponentId)
                 return;
-            try {
-                await PostService.create({
-                    content: ta.value,
-                    type: typeEl?.value ?? "post",
-                    meta: typeEl?.value === "summary" && missionEl?.value ? { missionId: missionEl.value } : undefined,
-                });
-                ta.value = "";
-            }
-            catch (e) {
-                ui.notifications?.error(String(e));
-            }
+            await DuelService.create(opponentId);
         });
-        el.querySelectorAll(".react-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const postId = btn.closest("[data-post-id]")?.getAttribute("data-post-id") ?? "";
-                const emoji = btn.dataset.emoji ?? "👍";
-                await PostService.react(postId, emoji);
-            });
-        });
-        el.querySelectorAll(".rate-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const postId = btn.closest("[data-post-id]")?.getAttribute("data-post-id") ?? "";
-                const rating = parseInt(btn.dataset.rating ?? "0");
-                await PostService.rateMission(postId, rating);
-            });
-        });
-        el.querySelectorAll(".delete-post-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const postId = btn.closest("[data-post-id]")?.getAttribute("data-post-id") ?? "";
-                await PostService.delete(postId);
-            });
-        });
-        // ── Missions ──────────────────────────────────────────────────────────────
-        el.querySelector("#mission-create-btn")?.addEventListener("click", () => {
-            new MissionCreateDialog().render(true);
-        });
-        el.querySelectorAll(".mission-join-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const id = btn.closest("[data-mission-id]")?.getAttribute("data-mission-id") ?? "";
-                await MissionService.join(id);
-            });
-        });
-        el.querySelectorAll(".mission-leave-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const id = btn.closest("[data-mission-id]")?.getAttribute("data-mission-id") ?? "";
-                await MissionService.leave(id);
-            });
-        });
-        el.querySelectorAll(".mission-close-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const id = btn.closest("[data-mission-id]")?.getAttribute("data-mission-id") ?? "";
-                await MissionService.close(id);
-            });
-        });
-        // EDIT (simples)
-        el.querySelectorAll(".edit-mission-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const missionId = btn.closest("[data-mission-id]")?.getAttribute("data-mission-id") ?? "";
-                const newTitle = prompt("Novo título:");
-                if (!newTitle)
-                    return;
-                await MissionService.update(missionId, { title: newTitle });
-            });
-        });
-        // DELETE
-        el.querySelectorAll(".delete-mission-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const missionId = btn.closest("[data-mission-id]")?.getAttribute("data-mission-id") ?? "";
-                new Dialog({
-                    title: "Excluir missão",
-                    content: "<p>Tem certeza que deseja excluir esta missão?</p>",
-                    buttons: {
-                        yes: {
-                            icon: '<i class="fas fa-trash"></i>',
-                            label: "Excluir",
-                            callback: async () => {
-                                await MissionService.delete(missionId);
-                            },
-                        },
-                        no: {
-                            icon: '<i class="fas fa-times"></i>',
-                            label: "Cancelar",
-                        },
-                    },
-                    default: "no",
-                }).render(true);
-            });
-        });
-        // el.querySelectorAll(".delete-mission-btn").forEach((btn) => {
-        //   btn.addEventListener("click", async () => {
-        //     const missionId = btn.closest("[data-mission-id]")?.getAttribute("data-mission-id") ?? "";
-        //     const confirmed = confirm("Excluir missão?");
-        //     if (!confirmed) return;
-        //     await MissionService.delete(missionId);
-        //   });
-        // });
-        // ── Polls ─────────────────────────────────────────────────────────────────
-        el.querySelector("#poll-create-btn")?.addEventListener("click", () => {
-            new PollCreateDialog().render(true);
-        });
-        el.querySelectorAll(".vote-option-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const pollId = btn.closest("[data-poll-id]")?.getAttribute("data-poll-id") ?? "";
-                const optionId = btn.dataset.optionId ?? "";
-                await PollService.vote(pollId, optionId);
-            });
-        });
-        el.querySelectorAll(".poll-close-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const pollId = btn.closest("[data-poll-id]")?.getAttribute("data-poll-id") ?? "";
-                await PollService.close(pollId);
-            });
-        });
-        //DELETE
-        el.querySelectorAll(".delete-poll-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const pollId = btn.closest("[data-poll-id]")?.getAttribute("data-poll-id") ??
-                    btn.getAttribute("data-poll-id") ??
-                    "";
-                new Dialog({
-                    title: "Excluir enquete",
-                    content: "<p>Tem certeza que deseja excluir?</p>",
-                    buttons: {
-                        yes: {
-                            icon: '<i class="fas fa-trash"></i>',
-                            label: "Excluir",
-                            callback: async () => {
-                                await PollService.delete(pollId);
-                            },
-                        },
-                        no: {
-                            label: "Cancelar",
-                        },
-                    },
-                    default: "no",
-                }).render(true);
-            });
-        });
-        // ── Graveyard ─────────────────────────────────────────────────────────────
-        function spawnFlower(container) {
-            const flower = document.createElement("div");
-            flower.className = "rose-fx";
-            flower.textContent = "🌹";
-            // leve variação horizontal
-            flower.style.left = `${40 + Math.random() * 20}%`;
-            container.appendChild(flower);
-            setTimeout(() => flower.remove(), 1500);
-        }
-        el.querySelector("#grave-add-btn")?.addEventListener("click", () => {
-            new GraveAddDialog().render(true);
-        });
-        el.querySelectorAll(".f-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const graveEl = btn.closest("[data-grave-id]");
-                const graveId = graveEl?.getAttribute("data-grave-id") ?? "";
-                await GraveService.respect(graveId);
-                spawnFlower(graveEl);
-            });
-        });
-        el.querySelectorAll(".grave-open-btn").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const graveEl = btn.closest("[data-grave-id]");
-                const graveId = graveEl?.getAttribute("data-grave-id") ?? "";
-                const grave = GraveService.getAll().find(g => g.id === graveId);
-                if (!grave)
-                    return;
-                new Dialog({
-                    title: `🪦 ${grave.name}`,
-                    content: `
-            <div class="grave-modal">
-              <div class="grave-photo-placeholder">
-                🚧 Em construção (foto)
-              </div>
-              <h2>${grave.name}</h2>
-              <p><i>Caiu em ${new Date(grave.deathAt).toLocaleDateString("pt-BR")}</i></p>
-              ${grave.epitaph ? `<blockquote>"${grave.epitaph}"</blockquote>` : ""}
-              <div class="grave-stats">
-                🌹 ${grave.respects.length} homenagens
-              </div>
-            </div>
-          `,
-                    buttons: {
-                        close: { label: "Fechar" }
-                    }
-                }).render(true);
-            });
-        });
-        // ── DELETE GRAVE ─────────────────────────────
-        el.querySelectorAll(".delete-grave-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const graveId = btn.closest("[data-grave-id]")?.getAttribute("data-grave-id") ?? "";
-                new Dialog({
-                    title: "Excluir lápide",
-                    content: "<p>Confirmar exclusão?</p>",
-                    buttons: {
-                        yes: {
-                            label: "Excluir",
-                            callback: async () => {
-                                await GraveService.delete(graveId);
-                            },
-                        },
-                        no: { label: "Cancelar" },
-                    },
-                }).render(true);
-            });
-        });
-        // ── EDIT GRAVE ─────────────────────────────
-        el.querySelectorAll(".edit-grave-btn").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const graveId = btn.closest("[data-grave-id]")?.getAttribute("data-grave-id") ?? "";
-                const grave = GraveService.getAll().find((g) => g.id === graveId);
-                if (!grave)
-                    return;
-                new Dialog({
-                    title: "Editar lápide",
-                    content: `
-        <form>
-          <div class="form-group">
-            <label>Nome</label>
-            <input name="name" type="text" value="${grave.name}" />
-          </div>
-          <div class="form-group">
-            <label>Epitáfio</label>
-            <textarea name="epitaph" maxlength="200">${grave.epitaph ?? ""}</textarea>
-          </div>
-        </form>
-      `,
-                    buttons: {
-                        save: {
-                            label: "Salvar",
-                            callback: async (html) => {
-                                const form = html.find("form")[0];
-                                const d = new FormData(form);
-                                await GraveService.update(graveId, {
-                                    name: d.get("name") || "",
-                                    epitaph: d.get("epitaph") || undefined,
-                                });
-                            },
-                        },
-                        cancel: { label: "Cancelar" },
-                    },
-                }).render(true);
-            });
-        });
-        // ── Patches ───────────────────────────────────────────────────────────────
-        el.querySelector("#patch-create-btn")?.addEventListener("click", () => {
-            new PatchCreateDialog().render(true);
+        bindClick(root, ".duel-finish-btn", async (btn) => {
+            const duelId = getClosestDataId(btn, "data-duel-id");
+            const winnerId = btn.getAttribute("data-winner-id") ?? "";
+            if (!duelId || !winnerId)
+                return;
+            await DuelService.finish(duelId, winnerId);
         });
     }
-    async getData() {
+}
+
+function confirmDialog(title, content, onConfirm) {
+    new Dialog({
+        title,
+        content,
+        buttons: {
+            yes: {
+                icon: '<i class="fas fa-check"></i>',
+                label: "Confirmar",
+                callback: () => void onConfirm(),
+            },
+            no: {
+                icon: '<i class="fas fa-times"></i>',
+                label: "Cancelar",
+            },
+        },
+        default: "no",
+    }).render(true);
+}
+function openFormDialog(config) {
+    new Dialog(config).render(true);
+}
+
+class GraveyardTab {
+    constructor() {
+        this.id = "graveyard";
+        this.label = "Cemitério";
+        this.icon = "fas fa-cross";
+    }
+    getData() {
         const uid = currentUserId();
         const gm = isGM();
-        const canCreateMission = userRole() >= ROLES.ASSISTANT;
-        const posts = PostService.getAll().map((post) => ({
-            ...post,
-            authorName: getUserName(post.authorId),
-            timeAgo: timeAgo(post.createdAt),
-            isOwn: post.authorId === uid,
-            canDelete: post.authorId === uid || gm,
-            reactionList: Object.entries(post.reactions).map(([emoji, users]) => ({
-                emoji,
-                count: users.length,
-                active: users.includes(uid),
+        const gameRef = game;
+        const graves = GraveService.getAll().map((grave) => ({
+            ...grave,
+            deathDateFmt: new Date(grave.deathAt).toLocaleDateString("pt-BR"),
+            respectCount: grave.respects.length,
+            hasRespected: grave.respects.includes(uid),
+            topRespecters: grave.respects.slice(0, 5).map((id) => gameRef.users?.get(id)?.name ?? "?").join(", "),
+            isGM: gm,
+        }));
+        return { graves, isGM: gm };
+    }
+    activateListeners(root) {
+        root.querySelector("#grave-add-btn")?.addEventListener("click", () => this.openCreateDialog());
+        bindClick(root, ".f-btn", async (btn) => {
+            const graveId = getClosestDataId(btn, "data-grave-id");
+            if (!graveId)
+                return;
+            await GraveService.respect(graveId);
+        });
+        bindClick(root, ".delete-grave-btn", async (btn) => {
+            const graveId = getClosestDataId(btn, "data-grave-id");
+            if (!graveId)
+                return;
+            confirmDialog("Excluir lápide", "<p>Confirmar exclusão?</p>", async () => GraveService.delete(graveId));
+        });
+        bindClick(root, ".edit-grave-btn", (btn) => {
+            const graveId = getClosestDataId(btn, "data-grave-id");
+            const grave = GraveService.getAll().find((g) => g.id === graveId);
+            if (!grave)
+                return;
+            openFormDialog({
+                title: "Editar lápide",
+                content: `
+          <form>
+            <div class="form-group"><label>Nome</label><input name="name" value="${grave.name}" /></div>
+            <div class="form-group"><label>Epitáfio</label><textarea name="epitaph">${grave.epitaph ?? ""}</textarea></div>
+          </form>
+        `,
+                buttons: {
+                    save: {
+                        label: "Salvar",
+                        callback: async (html) => {
+                            const form = html.find("form")[0];
+                            if (!form)
+                                return;
+                            const data = parseForm(form);
+                            await GraveService.update(graveId, {
+                                name: String(data.name ?? "").trim(),
+                                epitaph: String(data.epitaph ?? "").trim() || undefined,
+                            });
+                        },
+                    },
+                    cancel: { label: "Cancelar" },
+                },
+            });
+        });
+    }
+    openCreateDialog() {
+        openFormDialog({
+            title: "Registrar Morte",
+            content: `
+        <form class="social-dialog-form">
+          <div class="form-group"><label>Nome do Personagem</label><input name="name" maxlength="200" type="text" required /></div>
+          <div class="form-group"><label>Epitáfio</label><textarea name="epitaph" maxlength="200" rows="3"></textarea></div>
+          <div class="form-group"><label>Data da morte</label><input name="deathDate" type="date" /></div>
+        </form>`,
+            buttons: {
+                add: {
+                    icon: '<i class="fas fa-check"></i>',
+                    label: "Registrar",
+                    callback: async (html) => {
+                        const form = html.find("form")[0];
+                        if (!form)
+                            return;
+                        const data = parseForm(form);
+                        const deathDate = String(data.deathDate ?? "").trim();
+                        await GraveService.add({
+                            name: String(data.name ?? "").trim(),
+                            epitaph: String(data.epitaph ?? "").trim() || undefined,
+                            deathAt: deathDate ? new Date(deathDate).getTime() : Date.now(),
+                        });
+                    },
+                },
+                cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancelar" },
+            },
+            default: "add",
+        });
+    }
+}
+
+class MissionsTab {
+    constructor() {
+        this.id = "missions";
+        this.label = "Missões";
+        this.icon = "fas fa-map-marked-alt";
+    }
+    getData() {
+        const uid = currentUserId();
+        const gm = isGM();
+        return {
+            canCreateMission: userRole() >= ROLES.ASSISTANT,
+            missions: MissionService.getAll().map((m) => ({
+                ...m,
+                sessionDateFmt: formatDate(m.sessionDate),
+                creatorName: getUserName(m.createdBy),
+                userStatus: MissionService.getUserStatus(m, uid),
+                canManage: m.createdBy === uid || gm,
             })),
-            myRating: post.meta?.rating?.[uid] ?? 0,
-            ratingStats: post.type === "summary" ? PostService.getMissionRating(post) : null,
-            missionName: post.meta?.missionId
-                ? (MissionService.getAll().find((m) => m.id === post.meta?.missionId)?.title ?? "—")
-                : null,
-        }));
-        const missions = MissionService.getAll().map((m) => ({
-            ...m,
-            sessionDateFmt: formatDate(m.sessionDate),
-            creatorName: getUserName(m.createdBy),
-            userStatus: MissionService.getUserStatus(m, uid),
-            isFull: m.participants.length >= m.maxSlots,
-            canManage: m.createdBy === uid || gm,
-        }));
+        };
+    }
+    activateListeners(root) {
+        root.querySelector("#mission-create-btn")?.addEventListener("click", () => this.openCreateDialog());
+        bindClick(root, ".mission-join-btn", async (btn) => MissionService.join(getClosestDataId(btn, "data-mission-id")));
+        bindClick(root, ".mission-leave-btn", async (btn) => MissionService.leave(getClosestDataId(btn, "data-mission-id")));
+        bindClick(root, ".mission-close-btn", async (btn) => MissionService.close(getClosestDataId(btn, "data-mission-id")));
+        bindClick(root, ".delete-mission-btn", (btn) => {
+            const missionId = getClosestDataId(btn, "data-mission-id");
+            confirmDialog("Excluir missão", "<p>Tem certeza que deseja excluir esta missão?</p>", async () => MissionService.delete(missionId));
+        });
+    }
+    openCreateDialog() {
+        openFormDialog({
+            title: "Nova Missão",
+            content: `
+        <form class="social-dialog-form">
+          <div class="form-group"><label>Título</label><input name="title" type="text" required /></div>
+          <div class="form-group"><label>Descrição</label><textarea name="description" rows="3"></textarea></div>
+          <div class="form-group form-row"><div><label>Nível mín.</label><input name="levelMin" type="number" value="1" min="1" max="20" /></div><div><label>Nível máx.</label><input name="levelMax" type="number" value="20" min="1" max="20" /></div></div>
+          <div class="form-group"><label>Faixa etária</label><input name="age" type="text" value="Livre" /></div>
+          <div class="form-group"><label>Plataformas (vírgula)</label><input name="platforms" type="text" /></div>
+          <div class="form-group form-row"><div><label>Data</label><input name="sessionDate" type="date" /></div><div><label>Hora</label><input name="sessionTime" type="time" value="20:00" /></div></div>
+          <div class="form-group form-row"><div><label>Vagas</label><input name="maxSlots" type="number" value="6" min="1" /></div><div><label>Reservas</label><input name="reserveSlots" type="number" value="2" min="0" /></div></div>
+        </form>`,
+            buttons: {
+                create: {
+                    icon: '<i class="fas fa-check"></i>',
+                    label: "Criar",
+                    callback: async (html) => {
+                        const form = html.find("form")[0];
+                        if (!form)
+                            return;
+                        const data = parseForm(form);
+                        await MissionService.create({
+                            title: String(data.title ?? ""),
+                            description: String(data.description ?? ""),
+                            levelRange: [parseInt(String(data.levelMin ?? "1"), 10), parseInt(String(data.levelMax ?? "20"), 10)],
+                            age: String(data.age ?? "Livre"),
+                            platforms: String(data.platforms ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+                            sessionDate: String(data.sessionDate ?? ""),
+                            sessionTime: String(data.sessionTime ?? "20:00"),
+                            maxSlots: parseInt(String(data.maxSlots ?? "6"), 10),
+                            reserveSlots: parseInt(String(data.reserveSlots ?? "2"), 10),
+                        });
+                    },
+                },
+                cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancelar" },
+            },
+            default: "create",
+        });
+    }
+}
+
+class PatchesTab {
+    constructor() {
+        this.id = "patches";
+        this.label = "Patch Notes";
+        this.icon = "fas fa-scroll";
+    }
+    getData() {
+        return { patches: PatchService.getAll(), isGM: isGM() };
+    }
+    activateListeners(root) {
+        root.querySelector("#patch-create-btn")?.addEventListener("click", () => this.openCreateDialog());
+        bindClick(root, ".delete-patch-btn", async (btn) => {
+            const patchId = btn.closest("[data-patch-id]")?.getAttribute("data-patch-id") ?? "";
+            if (!patchId)
+                return;
+            await PatchService.delete(patchId);
+        });
+    }
+    openCreateDialog() {
+        openFormDialog({
+            title: "Nova Patch Note",
+            content: `
+        <form class="social-dialog-form">
+          <div class="form-group"><label>Versão</label><input name="version" type="text" value="1.0.0" /></div>
+          <div class="form-group"><label>Título</label><input name="title" type="text" /></div>
+          <div class="form-group"><label>Conteúdo</label><textarea name="content" rows="5"></textarea></div>
+          <div class="form-group"><label>Link externo (opcional)</label><input name="link" type="url" /></div>
+        </form>`,
+            buttons: {
+                create: {
+                    icon: '<i class="fas fa-check"></i>',
+                    label: "Publicar",
+                    callback: async (html) => {
+                        const form = html.find("form")[0];
+                        if (!form)
+                            return;
+                        const data = parseForm(form);
+                        await PatchService.create({
+                            version: String(data.version ?? "1.0.0"),
+                            title: String(data.title ?? ""),
+                            content: String(data.content ?? ""),
+                            link: String(data.link ?? "").trim() || undefined,
+                            official: false,
+                        });
+                    },
+                },
+                cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancelar" },
+            },
+            default: "create",
+        });
+    }
+}
+
+class PollsTab {
+    constructor() {
+        this.id = "polls";
+        this.label = "Enquetes";
+        this.icon = "fas fa-poll";
+    }
+    getData() {
+        const uid = currentUserId();
+        const gm = isGM();
         const polls = PollService.getAll().map((poll) => {
             const total = PollService.getTotalVotes(poll);
             return {
@@ -1215,125 +1285,43 @@ class SocialHubApp extends Application {
                 total,
             };
         });
-        const graves = GraveService.getAll().map((g) => ({
-            ...g,
-            deathDateFmt: new Date(g.deathAt).toLocaleDateString("pt-BR"),
-            respectCount: g.respects.length,
-            hasRespected: g.respects.includes(uid),
-            canDelete: gm,
-            topRespecters: g.respects.slice(0, 5).map(getUserName).join(", "),
-        }));
-        const patches = PatchService.getAll();
-        return {
-            posts,
-            missions,
-            polls,
-            graves,
-            patches,
-            isGM: gm,
-            canCreateMission,
-            currentUserId: uid,
-            EMOJIS: ["👍", "❤️", "😂", "😮", "😢", "🎲"],
-        };
+        return { polls };
     }
-    /** Re-register refresh hook when window opens */
-    async _render(...args) {
-        await super._render(...args);
-        Hooks.on("social:refresh", this._refreshHandler);
-    }
-    async close(...args) {
-        Hooks.off("social:refresh", this._refreshHandler);
-        return super.close(...args);
-    }
-}
-// ─── Sub-dialogs ──────────────────────────────────────────────────────────────
-class MissionCreateDialog extends Dialog {
-    constructor() {
-        super({
-            title: "Nova Missão",
-            content: `
-        <form class="social-dialog-form">
-          <div class="form-group"><label>Título</label><input name="title" type="text" required /></div>
-          <div class="form-group"><label>Descrição</label><textarea name="description" rows="3"></textarea></div>
-          <div class="form-group form-row">
-            <div><label>Nível mín.</label><input name="levelMin" type="number" value="1" min="1" max="20" /></div>
-            <div><label>Nível máx.</label><input name="levelMax" type="number" value="20" min="1" max="20" /></div>
-          </div>
-          <div class="form-group"><label>Faixa etária</label><input name="age" type="text" value="Livre" /></div>
-          <div class="form-group"><label>Plataformas (vírgula)</label><input name="platforms" type="text" /></div>
-          <div class="form-group form-row">
-            <div><label>Data</label><input name="sessionDate" type="date" /></div>
-            <div><label>Hora</label><input name="sessionTime" type="time" value="20:00" /></div>
-          </div>
-          <div class="form-group form-row">
-            <div><label>Vagas</label><input name="maxSlots" type="number" value="6" min="1" /></div>
-            <div><label>Reservas</label><input name="reserveSlots" type="number" value="2" min="0" /></div>
-          </div>
-        </form>`,
-            buttons: {
-                create: {
-                    icon: '<i class="fas fa-check"></i>',
-                    label: "Criar",
-                    callback: async (html) => {
-                        const f = html[0].querySelector("form");
-                        const d = new FormData(f);
-                        await MissionService.create({
-                            title: d.get("title"),
-                            description: d.get("description"),
-                            levelRange: [
-                                parseInt(d.get("levelMin")),
-                                parseInt(d.get("levelMax")),
-                            ],
-                            age: d.get("age"),
-                            platforms: d.get("platforms").split(",").map((s) => s.trim()).filter(Boolean),
-                            sessionDate: d.get("sessionDate"),
-                            sessionTime: d.get("sessionTime"),
-                            maxSlots: parseInt(d.get("maxSlots")),
-                            reserveSlots: parseInt(d.get("reserveSlots")),
-                        });
-                    },
-                },
-                cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancelar" },
-            },
-            default: "create",
+    activateListeners(root) {
+        root.querySelector("#poll-create-btn")?.addEventListener("click", () => this.openCreateDialog());
+        bindClick(root, ".vote-option-btn", async (btn) => {
+            await PollService.vote(getClosestDataId(btn, "data-poll-id"), btn.dataset.optionId ?? "");
+        });
+        bindClick(root, ".poll-close-btn", async (btn) => PollService.close(getClosestDataId(btn, "data-poll-id")));
+        bindClick(root, ".delete-poll-btn", (btn) => {
+            const pollId = getClosestDataId(btn, "data-poll-id") || btn.getAttribute("data-poll-id") || "";
+            confirmDialog("Excluir enquete", "<p>Tem certeza que deseja excluir?</p>", async () => PollService.delete(pollId));
         });
     }
-}
-class PollCreateDialog extends Dialog {
-    constructor() {
-        super({
+    openCreateDialog() {
+        openFormDialog({
             title: "Nova Enquete",
             content: `
         <form class="social-dialog-form">
           <div class="form-group"><label>Pergunta</label><input name="question" type="text" required /></div>
-          <div class="form-group"><label>Opções (uma por linha)</label><textarea name="options" rows="4" placeholder="Opção 1&#10;Opção 2&#10;Opção 3"></textarea></div>
-          <div class="form-group form-row">
-            <div><label>Multi-voto</label><input name="multiple" type="checkbox" /></div>
-            <div><label>Encerra em (horas, 0=sem limite)</label><input name="hours" type="number" value="0" min="0" /></div>
-          </div>
+          <div class="form-group"><label>Opções (uma por linha)</label><textarea name="options" rows="4"></textarea></div>
+          <div class="form-group form-row"><div><label>Multi-voto</label><input name="multiple" type="checkbox" /></div><div><label>Encerra em (horas, 0=sem limite)</label><input name="hours" type="number" value="0" min="0" /></div></div>
         </form>`,
             buttons: {
                 create: {
                     icon: '<i class="fas fa-check"></i>',
                     label: "Criar",
                     callback: async (html) => {
-                        const f = html[0].querySelector("form");
-                        const d = new FormData(f);
-                        const options = d.get("options").split("\n").map((s) => s.trim()).filter(Boolean);
-                        if (options.length < 2) {
-                            ui.notifications?.warn("Mínimo 2 opções.");
+                        const form = html.find("form")[0];
+                        if (!form)
                             return;
-                        }
-                        const hours = parseFloat(d.get("hours"));
+                        const data = parseForm(form);
+                        const options = String(data.options ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+                        const hours = parseFloat(String(data.hours ?? "0"));
                         await PollService.create({
-                            question: d.get("question"),
-                            options: options.map((o) => ({
-                                //id: randomID(),
-                                id: foundry.utils.randomID(),
-                                text: o,
-                                votes: []
-                            })),
-                            multiple: !!(d.get("multiple")),
+                            question: String(data.question ?? ""),
+                            options,
+                            multiple: !!data.multiple,
                             endsAt: hours > 0 ? Date.now() + hours * 3600 * 1000 : undefined,
                         });
                     },
@@ -1344,67 +1332,119 @@ class PollCreateDialog extends Dialog {
         });
     }
 }
-class GraveAddDialog extends Dialog {
-    constructor() {
-        super({
-            title: "Registrar Morte",
-            content: `
-        <form class="social-dialog-form">
-          <div class="form-group"><label>Nome do Personagem</label><input name="name" maxlength="200" type="text" required /></div>
-          <div class="form-group"><label>Epitáfio</label><textarea name="epitaph" maxlength="200" rows="3"></textarea></div>
-          <div class="form-group"><label>Data da morte</label><input name="deathDate" type="date" /></div>
-        </form>`,
-            buttons: {
-                add: {
-                    icon: '<i class="fas fa-check"></i>',
-                    label: "Registrar",
-                    callback: async (html) => {
-                        const f = html[0].querySelector("form");
-                        const d = new FormData(f);
-                        const dateStr = d.get("deathDate");
-                        await GraveService.add({
-                            name: d.get("name"),
-                            epitaph: d.get("epitaph") || undefined,
-                            deathAt: dateStr ? new Date(dateStr).getTime() : Date.now(),
-                        });
-                    },
-                },
-                cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancelar" },
-            },
-            default: "add",
+
+const MODULE_ID$1 = "foundryvtt-social";
+class SocialHubApp extends Application {
+    static get defaultOptions() {
+        return foundry.utils.mergeObject(super.defaultOptions, {
+            id: "social-hub",
+            title: "Social Hub",
+            template: `modules/${MODULE_ID$1}/templates/hub.hbs`,
+            width: 720,
+            height: 640,
+            resizable: true,
+            classes: ["social-hub"],
+            tabs: [{ navSelector: ".social-tabs", contentSelector: ".social-content", initial: "feed" }],
         });
     }
-}
-class PatchCreateDialog extends Dialog {
-    constructor() {
-        super({
-            title: "Nova Patch Note",
-            content: `
-        <form class="social-dialog-form">
-          <div class="form-group"><label>Versão</label><input name="version" type="text" value="1.0.0" /></div>
-          <div class="form-group"><label>Título</label><input name="title" type="text" /></div>
-          <div class="form-group"><label>Conteúdo</label><textarea name="content" rows="5"></textarea></div>
-          <div class="form-group"><label>Link externo (opcional)</label><input name="link" type="url" /></div>
-        </form>`,
-            buttons: {
-                create: {
-                    icon: '<i class="fas fa-check"></i>',
-                    label: "Publicar",
-                    callback: async (html) => {
-                        const f = html[0].querySelector("form");
-                        const d = new FormData(f);
-                        await PatchService.create({
-                            version: d.get("version"),
-                            title: d.get("title"),
-                            content: d.get("content"),
-                            link: d.get("link") || undefined,
-                            official: false,
-                        });
-                    },
-                },
-                cancel: { icon: '<i class="fas fa-times"></i>', label: "Cancelar" },
-            },
-            default: "create",
+    constructor(options = {}) {
+        super(options);
+        this.tabs = this.buildTabs();
+        this._refreshHandler = debounce(() => {
+            if (this.rendered)
+                this.render(false);
+        }, 200);
+    }
+    async getData() {
+        const data = {
+            ...this.getFeedData(),
+            features: FEATURES,
+            navTabs: this.tabs.map((tab) => ({ id: tab.id, label: tab.label, icon: tab.icon })),
+        };
+        for (const tab of this.tabs) {
+            data[tab.id] = await tab.getData();
+        }
+        return data;
+    }
+    activateListeners(html) {
+        super.activateListeners(html);
+        const root = html[0];
+        this.activateFeedListeners(root);
+        for (const tab of this.tabs) {
+            const tabRoot = root.querySelector(`.tab[data-tab="${tab.id}"]`);
+            if (tabRoot)
+                tab.activateListeners(tabRoot);
+        }
+    }
+    async _render(...args) {
+        await super._render(...args);
+        Hooks.off("social:refresh", this._refreshHandler);
+        Hooks.on("social:refresh", this._refreshHandler);
+    }
+    async close(...args) {
+        Hooks.off("social:refresh", this._refreshHandler);
+        return super.close(...args);
+    }
+    buildTabs() {
+        const built = [];
+        if (FEATURES.missions)
+            built.push(new MissionsTab());
+        if (FEATURES.polls)
+            built.push(new PollsTab());
+        if (FEATURES.graveyard)
+            built.push(new GraveyardTab());
+        if (FEATURES.arena)
+            built.push(new ArenaTab());
+        if (FEATURES.patches)
+            built.push(new PatchesTab());
+        return built;
+    }
+    getFeedData() {
+        const uid = currentUserId();
+        const gm = isGM();
+        const posts = PostService.getAll().map((post) => ({
+            ...post,
+            authorName: getUserName(post.authorId),
+            timeAgo: timeAgo(post.createdAt),
+            canDelete: post.authorId === uid || gm,
+            reactionList: Object.entries(post.reactions).map(([emoji, users]) => ({ emoji, count: users.length, active: users.includes(uid) })),
+            myRating: post.meta?.rating?.[uid] ?? 0,
+            ratingStats: post.type === "summary" ? PostService.getMissionRating(post) : null,
+            missionName: post.meta?.missionId ? MissionService.getAll().find((m) => m.id === post.meta?.missionId)?.title ?? "—" : null,
+        }));
+        return {
+            posts,
+            missions: MissionService.getAll().map((m) => ({ id: m.id, title: m.title, sessionDateFmt: formatDate(m.sessionDate) })),
+            EMOJIS: ["👍", "❤️", "😂", "😮", "😢", "🎲"],
+            canCreateMission: userRole() >= ROLES.ASSISTANT,
+            isGM: gm,
+            duelsCount: DuelService.getAll().length,
+            pollsCount: PollService.getAll().length,
+            patchesCount: PatchService.getAll().length,
+        };
+    }
+    activateFeedListeners(root) {
+        root.querySelector("#social-post-submit")?.addEventListener("click", async () => {
+            const ta = root.querySelector("#social-post-content");
+            const typeEl = root.querySelector("#social-post-type");
+            const missionEl = root.querySelector("#social-post-mission");
+            if (!ta?.value.trim())
+                return;
+            await PostService.create({
+                content: ta.value,
+                type: typeEl?.value ?? "post",
+                meta: typeEl?.value === "summary" && missionEl?.value ? { missionId: missionEl.value } : undefined,
+            });
+            ta.value = "";
+        });
+        bindClick(root, ".react-btn", async (btn) => {
+            await PostService.react(getClosestDataId(btn, "data-post-id"), btn.dataset.emoji ?? "👍");
+        });
+        bindClick(root, ".rate-btn", async (btn) => {
+            await PostService.rateMission(getClosestDataId(btn, "data-post-id"), parseInt(btn.dataset.rating ?? "0", 10));
+        });
+        bindClick(root, ".delete-post-btn", async (btn) => {
+            await PostService.delete(getClosestDataId(btn, "data-post-id"));
         });
     }
 }
@@ -1424,6 +1464,7 @@ Hooks.once("init", () => {
     console.log(`${MODULE_ID} | init`);
     registerSettings();
     registerHelpers();
+    void registerTemplatePartials();
     //registerSockets();
 });
 Hooks.once("ready", () => {
@@ -1449,6 +1490,7 @@ Hooks.once("ready", () => {
         MissionService,
         GraveService,
         PostService,
+        DuelService,
     };
 });
 Hooks.on("renderSidebarTab", (_app, html) => {

@@ -1,0 +1,17 @@
+{{#with polls}}
+<div class="tab" data-tab="polls">
+  <div class="tab-header"><button id="poll-create-btn" class="btn-primary"><i class="fas fa-plus"></i> Nova Enquete</button></div>
+  <div class="polls-list">
+    {{#each polls}}
+    <div class="poll-card card" data-poll-id="{{id}}">
+      <h3>{{question}}</h3>
+      {{#each options}}
+      <button class="vote-option-btn" data-option-id="{{id}}">{{text}} ({{voteCount}})</button>
+      {{/each}}
+      {{#if canClose}}<button class="poll-close-btn btn-ghost">Encerrar</button>{{/if}}
+      {{#if canDelete}}<button class="delete-poll-btn btn-ghost danger" data-poll-id="{{id}}">Excluir</button>{{/if}}
+    </div>
+    {{else}}<div class="empty-state"><p>Nenhuma enquete ativa.</p></div>{{/each}}
+  </div>
+</div>
+{{/with}}

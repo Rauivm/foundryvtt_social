@@ -6,11 +6,11 @@
 
 import { randomID } from "./utils";
 import { isGM, currentUserId, userRole, ROLES } from "./types";
-import type { Post, Mission, Poll, Grave, PatchNote } from "./types";
+import type { Post, Mission, Poll, Grave, PatchNote, Duel } from "./types";
 import {
   getPosts, savePosts, getMissions, saveMissions,
   getPolls, savePolls, getGraves, saveGraves,
-  getPatchNotes, savePatchNotes, indexes,
+  getPatchNotes, savePatchNotes, getDuels, saveDuels, indexes,
 } from "./settings";
 import { getSocket, socket, SOCKET_EVENTS } from "./sockets";
 import { sanitize } from "./utils";
@@ -397,5 +397,40 @@ export class PatchService {
     const patches = getPatchNotes().filter((p) => p.id !== patchId);
     await savePatchNotes(patches);
     Hooks.callAll("social:refresh", "patches");
+  }
+}
+
+// ─── DuelService ──────────────────────────────────────────────────────────────
+
+export class DuelService {
+  static getAll(): Duel[] {
+    return getDuels().sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  static async create(opponentId: string): Promise<void> {
+    const player1Id = currentUserId();
+    if (!player1Id || !opponentId || opponentId === player1Id) throw new Error("invalid_duel");
+    const duel: Duel = {
+      id: foundry.utils.randomID(),
+      player1Id,
+      player2Id: opponentId,
+      createdAt: Date.now(),
+    };
+    const duels = getDuels();
+    duels.push(duel);
+    await saveDuels(duels);
+    Hooks.callAll("social:refresh", "arena");
+  }
+
+  static async finish(duelId: string, winnerId: string): Promise<void> {
+    if (!winnerId) throw new Error("invalid_winner");
+    const duels = getDuels();
+    const duel = duels.find((item) => item.id === duelId);
+    if (!duel) return;
+    if (winnerId !== duel.player1Id && winnerId !== duel.player2Id) throw new Error("invalid_winner");
+    duel.winnerId = winnerId;
+    duel.finishedAt = Date.now();
+    await saveDuels(duels);
+    Hooks.callAll("social:refresh", "arena");
   }
 }

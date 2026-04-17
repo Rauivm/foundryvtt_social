@@ -1,0 +1,24 @@
+{{#with missions}}
+<div class="tab" data-tab="missions">
+  {{#if canCreateMission}}
+  <div class="tab-header"><button id="mission-create-btn" class="btn-primary"><i class="fas fa-plus"></i> Nova Missão</button></div>
+  {{/if}}
+  <div class="missions-grid">
+    {{#each missions}}
+    <div class="mission-card card status-{{status}}" data-mission-id="{{id}}">
+      <div class="mission-header"><h3>{{title}}</h3><span class="badge badge-status-{{status}}">{{statusLabel status}}</span></div>
+      <div class="mission-meta"><span><i class="fas fa-calendar"></i> {{sessionDateFmt}} {{sessionTime}}</span></div>
+      <div class="slot-bar"><span class="slot-label">{{participants.length}}/{{maxSlots}} vagas</span></div>
+      <div class="mission-actions">
+        {{#if (eq userStatus "none")}}{{#unless (eq status "closed")}}<button class="mission-join-btn btn-primary">👍 Participar</button>{{/unless}}{{/if}}
+        {{#if (eq userStatus "participant")}}<button class="mission-leave-btn btn-ghost">Sair</button>{{/if}}
+        {{#if (eq userStatus "reserve")}}<button class="mission-leave-btn btn-ghost">Sair da reserva</button>{{/if}}
+        {{#if canManage}}<button class="mission-close-btn btn-ghost">Encerrar</button><button class="delete-mission-btn btn-ghost danger">Excluir</button>{{/if}}
+      </div>
+    </div>
+    {{else}}
+    <div class="empty-state"><p>Nenhuma missão disponível.</p></div>
+    {{/each}}
+  </div>
+</div>
+{{/with}}
