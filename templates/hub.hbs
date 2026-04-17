@@ -11,8 +11,15 @@
       <div class="social-compose card">
         <textarea id="social-post-content" placeholder="Compartilhe algo com o reino…" rows="3"></textarea>
         <div class="compose-row">
-          <select id="social-post-type"><option value="post">Publicação</option><option value="summary">Resumo de Sessão</option></select>
+          <select id="social-post-type">
+            {{#if canCreateNormalPost}}<option value="post">Publicação</option>{{/if}}
+            {{#if canCreateSummary}}<option value="summary">Resumo de Sessão</option>{{/if}}
+          </select>
+          {{#if hasSummaryMissions}}
           <select id="social-post-mission" name="missionId" style="display:none"><option value="">— vincular missão —</option>{{#each missions}}<option value="{{id}}">{{title}}</option>{{/each}}</select>
+          {{else}}
+          <div class="compose-no-mission-msg" style="display:none">Você não possui missões para vincular.</div>
+          {{/if}}
           <button id="social-post-submit" class="btn-primary"><i class="fas fa-paper-plane"></i> Publicar</button>
         </div>
       </div>
@@ -20,6 +27,7 @@
         {{#each posts}}
         <div class="post-card card" data-post-id="{{id}}">
           {{#if canDelete}}<button class="delete-post-btn post-delete-btn icon-btn"><i class="fas fa-trash"></i></button>{{/if}}
+          {{#if canEdit}}<button class="edit-post-btn post-edit-btn icon-btn"><i class="fas fa-pen"></i></button>{{/if}}
           <div class="post-header"><span class="post-author">{{authorName}}</span><span class="post-date">{{createdAtFmt}}</span></div>
           <div class="post-body">{{{content}}}</div>
           {{#if missionName}}<div class="post-mission">Missão vinculada: {{missionName}}</div>{{/if}}
@@ -35,7 +43,16 @@
             </div>
             {{/each}}
           </div>
-          {{#if (eq type "summary")}}<div class="mission-rating">{{#each (range 1 5)}}<button class="rate-btn {{#if (eq this ../myRating)}}active{{/if}}" data-rating="{{this}}">★</button>{{/each}}</div>{{/if}}
+          {{#if (eq type "summary")}}
+          <div class="mission-rating">
+            <div class="rating">
+              {{#each (range 1 5)}}
+              <button class="rate-btn star {{#if (eq this ../myRating)}}active{{/if}}" data-rating="{{this}}">★</button>
+              {{/each}}
+            </div>
+            <span class="avg">{{ratingStats.avg}}</span>
+          </div>
+          {{/if}}
         </div>
         {{/each}}
       </div>

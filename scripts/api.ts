@@ -13,7 +13,7 @@ import {
   getPatchNotes, savePatchNotes, getDuels, saveDuels, indexes,
 } from "./settings";
 import { getSocket, socket, SOCKET_EVENTS } from "./sockets";
-import { sanitize } from "./utils";
+import { escapeHtml, parseMentions, sanitize } from "./utils";
 import {
   validatePostCreate, validateRating,
   validateMissionCreate, validatePollCreate,
@@ -30,18 +30,29 @@ export class PostService {
 
   static async create(input: Partial<Post>): Promise<void> {
     if (userRole() < ROLES.PLAYER) throw new Error("permission_denied");
-    const content = sanitize(input.content ?? "");
+    const content = escapeHtml(input.content ?? "");
+    const type = input.type ?? "post";
+    const missionId = input.meta?.missionId;
+    if (!isGM() && type !== "summary") throw new Error("permission_denied");
+    if (type === "summary") {
+      if (!missionId) throw new Error("summary_requires_mission");
+      const mission = getMissions().find((m) => m.id === missionId);
+      if (!mission) throw new Error("mission_not_found");
+      if (!isGM() && mission.createdBy !== currentUserId()) throw new Error("permission_denied");
+    }
     const check = validatePostCreate({ ...input, content });
     if (!check.ok) throw new Error(check.reason);
+    const mentions = parseMentions(content).mentions;
 
     const post: Post = {
       id: foundry.utils.randomID(),
       authorId: currentUserId(),
       content,
+      mentions,
       createdAt: Date.now(),
       reactions: {},
-      type: input.type ?? "post",
-      meta: input.meta,
+      type,
+      meta: type === "summary" ? { ...(input.meta ?? {}), missionId } : input.meta,
     };
 
     const posts = getPosts();
@@ -56,6 +67,19 @@ export class PostService {
     if (post.authorId !== currentUserId() && !isGM()) throw new Error("permission_denied");
 
     const posts = getPosts().filter((p) => p.id !== postId);
+    await savePosts(posts);
+    Hooks.callAll("social:refresh", "feed");
+  }
+
+  static async update(postId: string, input: Partial<Post>): Promise<void> {
+    const posts = getPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+    if (!isGM()) throw new Error("permission_denied");
+    const safeContent = escapeHtml(input.content ?? post.content);
+    const mentions = parseMentions(safeContent).mentions;
+    post.content = safeContent;
+    post.mentions = mentions;
     await savePosts(posts);
     Hooks.callAll("social:refresh", "feed");
   }

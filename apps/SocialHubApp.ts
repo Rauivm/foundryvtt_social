@@ -1,7 +1,17 @@
 import { DuelService, MissionService, PatchService, PollService, PostService } from "../scripts/api";
 import { FEATURES } from "../scripts/config";
 import { currentUserId, isGM, ROLES, userRole } from "../scripts/types";
-import { debounce, formatDate, getUserName, timeAgo } from "../scripts/utils";
+import {
+  debounce,
+  formatDate,
+  getUserName,
+  nl2br,
+  parseMarkdown,
+  parseMentions,
+  parseSpoiler,
+  sanitize,
+  timeAgo,
+} from "../scripts/utils";
 import { bindClick, getClosestDataId } from "../scripts/ui/dom";
 import { ArenaTab } from "./tabs/ArenaTab";
 import { GraveyardTab } from "./tabs/GraveyardTab";
@@ -15,6 +25,7 @@ const MODULE_ID = "foundryvtt-social";
 export class SocialHubApp extends Application {
   private readonly _refreshHandler: (tab: string) => void;
   private readonly tabs: SocialTab[];
+  private readonly _mentionNotifications = new Set<string>();
 
   static override get defaultOptions(): ApplicationOptions {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -83,15 +94,18 @@ export class SocialHubApp extends Application {
   private getFeedData(): Record<string, unknown> {
     const uid = currentUserId();
     const gm = isGM();
-    const missions = MissionService.getAll();
+    const allMissions = MissionService.getAll();
+    const missions = gm ? allMissions : allMissions.filter((m) => m.createdBy === uid);
     const users = (game as Game).users;
     const emojis = ["👍", "❤️", "😂", "😮", "😢", "🎲"];
     const posts = PostService.getAll().map((post) => ({
       ...post,
+      content: this.renderPostContent(post.content),
       authorName: getUserName(post.authorId),
       timeAgo: timeAgo(post.createdAt),
       createdAtFmt: new Date(post.createdAt).toLocaleString("pt-BR"),
       canDelete: post.authorId === uid || gm,
+      canEdit: gm,
       reactionList: emojis.map((emoji) => {
         const reactedUsers = post.reactions[emoji] ?? [];
         return {
@@ -110,12 +124,17 @@ export class SocialHubApp extends Application {
       }),
       myRating: post.meta?.rating?.[uid] ?? 0,
       ratingStats: post.type === "summary" ? PostService.getMissionRating(post) : null,
-      missionName: post.meta?.missionId ? missions.find((m) => m.id === post.meta?.missionId)?.title ?? "—" : null,
+      missionName: post.meta?.missionId ? allMissions.find((m) => m.id === post.meta?.missionId)?.title ?? "—" : null,
     }));
+
+    this.notifyMentions(posts, uid);
 
     return {
       posts,
       missions: missions.map((m) => ({ id: m.id, title: m.title, sessionDateFmt: formatDate(m.sessionDate) })),
+      canCreateNormalPost: gm,
+      canCreateSummary: userRole() >= ROLES.PLAYER,
+      hasSummaryMissions: missions.length > 0,
       EMOJIS: emojis,
       canCreateMission: userRole() >= ROLES.ASSISTANT,
       isGM: gm,
@@ -126,27 +145,34 @@ export class SocialHubApp extends Application {
   }
 
   private activateFeedListeners(root: HTMLElement): void {
+    const contentEl = root.querySelector<HTMLTextAreaElement>("#social-post-content");
     const typeEl = root.querySelector<HTMLSelectElement>("#social-post-type");
     const missionEl = root.querySelector<HTMLSelectElement>('select[name="missionId"]');
+    const noMissionEl = root.querySelector<HTMLElement>(".compose-no-mission-msg");
     const syncMissionSelectVisibility = (): void => {
       if (!missionEl || !typeEl) return;
       missionEl.style.display = typeEl.value === "summary" ? "inline-block" : "none";
+      if (noMissionEl) noMissionEl.style.display = typeEl.value === "summary" && missionEl.options.length <= 1 ? "block" : "none";
     };
 
     typeEl?.addEventListener("change", syncMissionSelectVisibility);
     syncMissionSelectVisibility();
 
     root.querySelector("#social-post-submit")?.addEventListener("click", async () => {
-      const ta = root.querySelector<HTMLTextAreaElement>("#social-post-content");
-      if (!ta?.value.trim()) return;
+      if (!contentEl?.value.trim()) return;
+      if (!typeEl) return;
+      if (typeEl.value === "summary" && !missionEl?.value) {
+        ui.notifications?.warn("Selecione uma missão para o resumo.");
+        return;
+      }
 
       await PostService.create({
-        content: ta.value,
+        content: contentEl.value,
         type: (typeEl?.value as "post" | "summary") ?? "post",
         meta: typeEl?.value === "summary" && missionEl?.value ? { missionId: missionEl.value } : undefined,
       });
 
-      ta.value = "";
+      contentEl.value = "";
       if (missionEl) missionEl.value = "";
     });
 
@@ -159,5 +185,41 @@ export class SocialHubApp extends Application {
     bindClick(root, ".delete-post-btn", async (btn) => {
       await PostService.delete(getClosestDataId(btn, "data-post-id"));
     });
+    bindClick(root, ".edit-post-btn", async (btn) => {
+      const postId = getClosestDataId(btn, "data-post-id");
+      const post = PostService.getAll().find((p) => p.id === postId);
+      if (!post) return;
+      const content = await Dialog.prompt({
+        title: "Editar publicação",
+        content: `<textarea id="edit-post-content" rows="8">${post.content}</textarea>`,
+        callback: (html) => html.find("#edit-post-content").val(),
+      });
+      if (typeof content !== "string" || !content.trim()) return;
+      await PostService.update(postId, { content });
+    });
+  }
+
+  private renderPostContent(content: string): string {
+    const spoilerParsed = parseSpoiler(content);
+    const markdownParsed = parseMarkdown(spoilerParsed);
+    const mentionParsed = parseMentions(markdownParsed).html;
+    const withBreaks = nl2br(mentionParsed);
+    return sanitize(withBreaks);
+  }
+
+  private notifyMentions(
+    posts: Array<{ id: string; authorId: string; mentions?: string[]; authorName: string }>,
+    uid: string
+  ): void {
+    const myName = (game as Game).user?.name?.toLowerCase() ?? "";
+    for (const post of posts) {
+      if (post.authorId === uid) continue;
+      const mentionKeys = (post.mentions ?? []).map((m) => m.toLowerCase());
+      if (!mentionKeys.includes(myName)) continue;
+      const key = `${post.id}:${uid}`;
+      if (this._mentionNotifications.has(key)) continue;
+      this._mentionNotifications.add(key);
+      ui.notifications?.info(`${post.authorName} mencionou você`);
+    }
   }
 }
