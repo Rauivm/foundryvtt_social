@@ -44,18 +44,34 @@ export class SocialHubApp extends Application {
     const el = html[0];
 
     // ── Feed ──────────────────────────────────────────────────────────────────
+    const typeEl = el.querySelector<HTMLSelectElement>("#social-post-type");
+    const missionEl = el.querySelector<HTMLSelectElement>("#social-post-mission");
+
+    const syncMissionLinkVisibility = (): void => {
+      if (!typeEl || !missionEl) return;
+      const shouldShowMission = typeEl.value === "summary";
+      missionEl.style.display = shouldShowMission ? "inline-block" : "none";
+      missionEl.disabled = !shouldShowMission;
+      if (!shouldShowMission) missionEl.value = "";
+    };
+
+    typeEl?.addEventListener("change", syncMissionLinkVisibility);
+    syncMissionLinkVisibility();
+
     el.querySelector("#social-post-submit")?.addEventListener("click", async () => {
       const ta = el.querySelector<HTMLTextAreaElement>("#social-post-content");
-      const typeEl = el.querySelector<HTMLSelectElement>("#social-post-type");
-      const missionEl = el.querySelector<HTMLSelectElement>("#social-post-mission");
       if (!ta?.value.trim()) return;
       try {
+        const postType = (typeEl?.value as "post" | "summary") ?? "post";
+        const missionId = missionEl?.value?.trim();
+
         await PostService.create({
           content: ta.value,
-          type: (typeEl?.value as "post" | "summary") ?? "post",
-          meta: typeEl?.value === "summary" && missionEl?.value ? { missionId: missionEl.value } : undefined,
+          type: postType,
+          meta: postType === "summary" && missionId ? { missionId } : undefined,
         });
         ta.value = "";
+        if (missionEl) missionEl.value = "";
       } catch (e: unknown) {
         ui.notifications?.error(String(e));
       }
@@ -206,33 +222,34 @@ export class SocialHubApp extends Application {
     });
 
     // ── Graveyard ─────────────────────────────────────────────────────────────
-    function spawnFlower(container: HTMLElement) {
-      const flower = document.createElement("div");
-      flower.className = "rose-fx";
-      flower.textContent = "🌹";
-
-        // leve variação horizontal
-      flower.style.left = `${40 + Math.random() * 20}%`;
-
-      container.appendChild(flower);
-
-      setTimeout(() => flower.remove(), 1500);
+    function spawnRose(container: HTMLElement): void {
+      const rose = document.createElement("div");
+      rose.className = "rose-fx";
+      rose.textContent = "🌹";
+      rose.style.left = `${40 + Math.random() * 20}%`;
+      container.appendChild(rose);
+      rose.addEventListener("animationend", () => rose.remove(), { once: true });
     }
-    
+
     el.querySelector("#grave-add-btn")?.addEventListener("click", () => {
       new GraveAddDialog().render(true);
     });
 
-    el.querySelectorAll<HTMLButtonElement>(".f-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const graveEl = btn.closest("[data-grave-id]") as HTMLElement;
+    if (!el.dataset.socialRespectBound) {
+      el.dataset.socialRespectBound = "true";
+      el.addEventListener("click", async (event) => {
+        const target = event.target as HTMLElement | null;
+        const respectBtn = target?.closest<HTMLButtonElement>(".f-btn");
+        if (!respectBtn) return;
+
+        const graveEl = respectBtn.closest<HTMLElement>("[data-grave-id]");
         const graveId = graveEl?.getAttribute("data-grave-id") ?? "";
+        if (!graveId || !graveEl) return;
 
         await GraveService.respect(graveId);
-
-        spawnFlower(graveEl);
+        spawnRose(graveEl);
       });
-    });
+    }
 
     el.querySelectorAll(".grave-open-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -357,7 +374,9 @@ el.querySelectorAll(".edit-grave-btn").forEach((btn) => {
         : null,
     }));
 
-    const missions = MissionService.getAll().map((m) => ({
+    const allMissions = MissionService.getAll();
+
+    const missions = allMissions.map((m) => ({
       ...m,
       sessionDateFmt: formatDate(m.sessionDate),
       creatorName: getUserName(m.createdBy),
@@ -365,6 +384,10 @@ el.querySelectorAll(".edit-grave-btn").forEach((btn) => {
       isFull: m.participants.length >= m.maxSlots,
       canManage: m.createdBy === uid || gm,
     }));
+
+    const feedMissions = allMissions
+      .filter((m) => m.status !== "closed")
+      .map((m) => ({ id: m.id, title: m.title }));
 
     const polls = PollService.getAll().map((poll) => {
       const total = PollService.getTotalVotes(poll);
@@ -399,6 +422,7 @@ el.querySelectorAll(".edit-grave-btn").forEach((btn) => {
     return {
       posts,
       missions,
+      feedMissions,
       polls,
       graves,
       patches,
