@@ -42,7 +42,7 @@ console.log("\n── validateMissionJoin ──");
 
 const openMission: Mission = {
   id: "m1", title: "Test", description: "", levelRange: [1, 5], age: "Livre",
-  platforms: [], sessionDate: "", sessionTime: "20:00",
+  platforms: [], sessionDate: "", sessionTime: "20:00", sessionNumber: 0,
   maxSlots: 2, reserveSlots: 1,
   participants: [], reserves: [], status: "open",
   createdBy: "gm", createdAt: Date.now(),

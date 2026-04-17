@@ -1,0 +1,10 @@
+{{#with patches}}
+<div class="tab" data-tab="patches">
+  {{#if isGM}}<div class="tab-header"><button id="patch-create-btn" class="btn-primary"><i class="fas fa-plus"></i> Publicar Update</button></div>{{/if}}
+  <div class="patches-list">
+    {{#each patches}}
+    <div class="patch-card card" data-patch-id="{{id}}"><h3>v{{version}} {{title}}</h3><div>{{{content}}}</div></div>
+    {{else}}<div class="empty-state"><p>Nenhuma nota de atualização.</p></div>{{/each}}
+  </div>
+</div>
+{{/with}}

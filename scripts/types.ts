@@ -4,6 +4,7 @@ export interface Post {
   id: string;
   authorId: string;
   content: string;
+  mentions: string[];
   createdAt: number;
   reactions: Record<string, string[]>; // emoji -> userIds
   type: "post" | "summary" | "patch";
@@ -22,6 +23,7 @@ export interface Mission {
   platforms: string[];
   sessionDate: string;
   sessionTime: string;
+  sessionNumber: number;
   maxSlots: number;
   reserveSlots: number;
   participants: string[];
@@ -68,6 +70,15 @@ export interface PatchNote {
   createdBy: string;
   official: boolean;
   link?: string;
+}
+
+export interface Duel {
+  id: string;
+  player1Id: string;
+  player2Id: string;
+  createdAt: number;
+  finishedAt?: number;
+  winnerId?: string;
 }
 
 // ─── Socket Payloads ──────────────────────────────────────────────────────────

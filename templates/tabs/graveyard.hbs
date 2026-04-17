@@ -1,0 +1,37 @@
+{{#with graveyard}}
+<div class="tab" data-tab="graveyard">
+  {{#if isGM}}
+  <div class="tab-header">
+    <button id="grave-add-btn" class="btn-primary"><i class="fas fa-plus"></i> Registrar Morte</button>
+  </div>
+  {{/if}}
+
+  <div class="cemetery-grid">
+    {{#each graves}}
+    <article class="grave-card card" data-grave-id="{{id}}">
+      {{#if isGM}}
+      <div class="grave-actions">
+        <button class="edit-grave-btn icon-btn" type="button" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+        <button class="delete-grave-btn icon-btn danger" type="button" title="Excluir"><i class="fas fa-trash"></i></button>
+      </div>
+      {{/if}}
+
+      <div class="grave-info">
+        <h3 class="grave-name">{{name}}</h3>
+        <p class="grave-date">{{deathDateFmt}}</p>
+        {{#if epitaph}}
+        <blockquote class="grave-epitaph">{{nl2br epitaph}}</blockquote>
+        {{/if}}
+
+        <div class="f-section">
+          <button class="f-btn {{#if hasRespected}}f-pressed{{/if}}" type="button" aria-label="Prestar respeito">🌹 Respeitar</button>
+          <span class="f-count">{{roseCounter respectCount}}</span>
+        </div>
+      </div>
+    </article>
+    {{else}}
+    <div class="empty-state"><p>Nenhum herói caiu ainda.</p></div>
+    {{/each}}
+  </div>
+</div>
+{{/with}}

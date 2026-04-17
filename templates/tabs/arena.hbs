@@ -1,0 +1,22 @@
+{{#with arena}}
+<div class="tab" data-tab="arena">
+  <div class="tab-header">
+    <select id="duel-opponent">
+      <option value="">Selecione o oponente</option>
+      {{#each opponents}}<option value="{{id}}">{{name}}</option>{{/each}}
+    </select>
+    <button id="duel-create-btn" class="btn-primary">⚔ Criar Duelo</button>
+  </div>
+  <div class="arena-list">
+    {{#each duels}}
+    <div class="card" data-duel-id="{{id}}">
+      <div>{{player1}} [{{statusLeft}}] ⚔ [{{statusRight}}] {{player2}}</div>
+      {{#unless winnerId}}
+      <button class="duel-finish-btn btn-ghost" data-winner-id="{{player1Id}}">Vitória {{player1}}</button>
+      <button class="duel-finish-btn btn-ghost" data-winner-id="{{player2Id}}">Vitória {{player2}}</button>
+      {{/unless}}
+    </div>
+    {{else}}<div class="empty-state"><p>Nenhum duelo registrado.</p></div>{{/each}}
+  </div>
+</div>
+{{/with}}

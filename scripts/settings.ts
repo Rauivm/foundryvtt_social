@@ -1,4 +1,4 @@
-import type { Post, Mission, Poll, Grave, PatchNote } from "./types";
+import type { Post, Mission, Poll, Grave, PatchNote, Duel } from "./types";
 
 export const MODULE_ID = "foundryvtt-social";
 
@@ -10,6 +10,7 @@ const KEYS = {
   POLLS: "polls",
   GRAVES: "graves",
   PATCHES: "patches",
+  DUELS: "duels",
 } as const;
 
 // ─── In-memory indexes for O(1) reads ─────────────────────────────────────────
@@ -20,6 +21,7 @@ export const indexes = {
   polls: new Map<string, Poll>(),
   graves: new Map<string, Grave>(),
   patches: new Map<string, PatchNote>(),
+  duels: new Map<string, Duel>(),
 };
 
 function buildIndex<T extends { id: string }>(
@@ -40,6 +42,7 @@ export function registerSettings(): void {
     [KEYS.POLLS, []],
     [KEYS.GRAVES, []],
     [KEYS.PATCHES, []],
+    [KEYS.DUELS, []],
   ];
 
   for (const [key, def] of defs) {
@@ -110,6 +113,14 @@ export async function savePatchNotes(patches: PatchNote[]): Promise<void> {
   buildIndex(indexes.patches, patches);
 }
 
+export function getDuels(): Duel[] {
+  return getAll<Duel>(KEYS.DUELS);
+}
+export async function saveDuels(duels: Duel[]): Promise<void> {
+  await saveAll(KEYS.DUELS, duels);
+  buildIndex(indexes.duels, duels);
+}
+
 // ─── Hydrate indexes on ready ─────────────────────────────────────────────────
 
 export function hydrateIndexes(): void {
@@ -118,4 +129,5 @@ export function hydrateIndexes(): void {
   buildIndex(indexes.polls, getPolls());
   buildIndex(indexes.graves, getGraves());
   buildIndex(indexes.patches, getPatchNotes());
+  buildIndex(indexes.duels, getDuels());
 }

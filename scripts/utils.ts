@@ -16,12 +16,46 @@ export function randomID(length = 16): string {
 /** Sanitize user-supplied HTML with DOMPurify */
 export function sanitize(html: string): string {
   if (typeof DOMPurify !== "undefined") {
-    return DOMPurify.sanitize(html, { ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "br"], ALLOWED_ATTR: ["href"] });
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "br", "code", "s", "span"],
+      ALLOWED_ATTR: ["href", "class"],
+    });
   }
   // fallback: strip all tags
   const d = document.createElement("div");
   d.textContent = html;
   return d.innerHTML;
+}
+
+export function escapeHtml(text: string): string {
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+export function parseMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
+    .replace(/\*(.*?)\*/g, "<i>$1</i>")
+    .replace(/`(.*?)`/g, "<code>$1</code>")
+    .replace(/~~(.*?)~~/g, "<s>$1</s>");
+}
+
+export function parseSpoiler(text: string): string {
+  return text.replace(
+    /---spoiler---(.*?)---spoiler---/gs,
+    '<span class="spoiler">$1</span>'
+  );
+}
+
+export function parseMentions(text: string): { html: string; mentions: string[] } {
+  const mentions = Array.from(new Set((text.match(/@([a-zA-Z0-9._-]+)/g) ?? []).map((m) => m.slice(1))));
+  const html = text.replace(/(^|\s)@([a-zA-Z0-9._-]+)/g, '$1<span class="mention">@$2</span>');
+  return { html, mentions };
+}
+
+export function nl2br(text: string): string {
+  return text.replace(/\n/g, "<br>");
 }
 
 /** Format a timestamp as relative string */

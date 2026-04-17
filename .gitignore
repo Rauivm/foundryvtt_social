@@ -34,3 +34,7 @@ Thumbs.db
 *.db
 worlds/
 packs/
+
+# Generated bundle artifacts (kept local)
+scripts/main.js
+scripts/main.js.map

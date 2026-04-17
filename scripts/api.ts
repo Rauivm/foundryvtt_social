@@ -6,14 +6,14 @@
 
 import { randomID } from "./utils";
 import { isGM, currentUserId, userRole, ROLES } from "./types";
-import type { Post, Mission, Poll, Grave, PatchNote } from "./types";
+import type { Post, Mission, Poll, Grave, PatchNote, Duel } from "./types";
 import {
   getPosts, savePosts, getMissions, saveMissions,
   getPolls, savePolls, getGraves, saveGraves,
-  getPatchNotes, savePatchNotes, indexes,
+  getPatchNotes, savePatchNotes, getDuels, saveDuels, indexes,
 } from "./settings";
 import { getSocket, socket, SOCKET_EVENTS } from "./sockets";
-import { sanitize } from "./utils";
+import { escapeHtml, parseMentions, sanitize } from "./utils";
 import {
   validatePostCreate, validateRating,
   validateMissionCreate, validatePollCreate,
@@ -30,18 +30,29 @@ export class PostService {
 
   static async create(input: Partial<Post>): Promise<void> {
     if (userRole() < ROLES.PLAYER) throw new Error("permission_denied");
-    const content = sanitize(input.content ?? "");
+    const content = escapeHtml(input.content ?? "");
+    const type = input.type ?? "post";
+    const missionId = input.meta?.missionId;
+    if (!isGM() && type !== "summary") throw new Error("permission_denied");
+    if (type === "summary") {
+      if (!missionId) throw new Error("summary_requires_mission");
+      const mission = getMissions().find((m) => m.id === missionId);
+      if (!mission) throw new Error("mission_not_found");
+      if (!isGM() && mission.createdBy !== currentUserId()) throw new Error("permission_denied");
+    }
     const check = validatePostCreate({ ...input, content });
     if (!check.ok) throw new Error(check.reason);
+    const mentions = parseMentions(content).mentions;
 
     const post: Post = {
       id: foundry.utils.randomID(),
       authorId: currentUserId(),
       content,
+      mentions,
       createdAt: Date.now(),
       reactions: {},
-      type: input.type ?? "post",
-      meta: input.meta,
+      type,
+      meta: type === "summary" ? { ...(input.meta ?? {}), missionId } : input.meta,
     };
 
     const posts = getPosts();
@@ -56,6 +67,19 @@ export class PostService {
     if (post.authorId !== currentUserId() && !isGM()) throw new Error("permission_denied");
 
     const posts = getPosts().filter((p) => p.id !== postId);
+    await savePosts(posts);
+    Hooks.callAll("social:refresh", "feed");
+  }
+
+  static async update(postId: string, input: Partial<Post>): Promise<void> {
+    const posts = getPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+    if (!isGM()) throw new Error("permission_denied");
+    const safeContent = escapeHtml(input.content ?? post.content);
+    const mentions = parseMentions(safeContent).mentions;
+    post.content = safeContent;
+    post.mentions = mentions;
     await savePosts(posts);
     Hooks.callAll("social:refresh", "feed");
   }
@@ -114,6 +138,7 @@ export class MissionService {
       platforms: input.platforms ?? [],
       sessionDate: input.sessionDate ?? "",
       sessionTime: input.sessionTime ?? "20:00",
+      sessionNumber: Number(input.sessionNumber || 0),
       maxSlots: Math.max(1, input.maxSlots ?? 6),
       reserveSlots: Math.max(0, input.reserveSlots ?? 2),
       participants: [],
@@ -148,43 +173,17 @@ export class MissionService {
 
   /** Join via GM socket (atomic) */
   static async join(missionId: string): Promise<void> {
-    const missions = getMissions();
-    const mission = missions.find(m => m.id === missionId);
-
-    if (!mission) return;
-
-    const userId = currentUserId();
-
-    if (!mission.participants.includes(userId)) {
-      if (mission.participants.length < mission.maxSlots) {
-        mission.participants.push(userId);
-      } else if (mission.reserves.length < mission.reserveSlots) {
-        mission.reserves.push(userId);
-      }
-    }
-
-    await saveMissions(missions);
-
-    Hooks.callAll("social:refresh", "missions");
+    await socket.executeAsGM("mission:join", {
+      missionId,
+      userId: currentUserId(),
+    });
   }
 
   static async leave(missionId: string): Promise<void> {
-    const missions = getMissions();
-    const mission = missions.find(m => m.id === missionId);
-
-    if (!mission) return;
-
-    const userId = currentUserId();
-
-    // remove de participantes
-    mission.participants = mission.participants.filter(id => id !== userId);
-
-    // remove de reservas
-    mission.reserves = mission.reserves.filter(id => id !== userId);
-
-    await saveMissions(missions);
-
-    Hooks.callAll("social:refresh", "missions");
+    await socket.executeAsGM(SOCKET_EVENTS.MISSION_LEAVE, {
+      missionId,
+      userId: currentUserId(),
+    });
   }
 
   static async update(missionId: string, data: Partial<Mission>): Promise<void> {
@@ -397,5 +396,40 @@ export class PatchService {
     const patches = getPatchNotes().filter((p) => p.id !== patchId);
     await savePatchNotes(patches);
     Hooks.callAll("social:refresh", "patches");
+  }
+}
+
+// ─── DuelService ──────────────────────────────────────────────────────────────
+
+export class DuelService {
+  static getAll(): Duel[] {
+    return getDuels().sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  static async create(opponentId: string): Promise<void> {
+    const player1Id = currentUserId();
+    if (!player1Id || !opponentId || opponentId === player1Id) throw new Error("invalid_duel");
+    const duel: Duel = {
+      id: foundry.utils.randomID(),
+      player1Id,
+      player2Id: opponentId,
+      createdAt: Date.now(),
+    };
+    const duels = getDuels();
+    duels.push(duel);
+    await saveDuels(duels);
+    Hooks.callAll("social:refresh", "arena");
+  }
+
+  static async finish(duelId: string, winnerId: string): Promise<void> {
+    if (!winnerId) throw new Error("invalid_winner");
+    const duels = getDuels();
+    const duel = duels.find((item) => item.id === duelId);
+    if (!duel) return;
+    if (winnerId !== duel.player1Id && winnerId !== duel.player2Id) throw new Error("invalid_winner");
+    duel.winnerId = winnerId;
+    duel.finishedAt = Date.now();
+    await saveDuels(duels);
+    Hooks.callAll("social:refresh", "arena");
   }
 }
