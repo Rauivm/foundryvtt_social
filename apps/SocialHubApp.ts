@@ -131,7 +131,11 @@ export class SocialHubApp extends Application {
 
     return {
       posts,
-      missions: missions.map((m) => ({ id: m.id, title: m.title, sessionDateFmt: formatDate(m.sessionDate) })),
+      missions: missions.map((m) => ({
+        id: m.id,
+        title: m.title || "Missão sem nome",
+        sessionDateFmt: formatDate(m.sessionDate),
+      })),
       canCreateNormalPost: gm,
       canCreateSummary: userRole() >= ROLES.PLAYER,
       hasSummaryMissions: missions.length > 0,
@@ -161,7 +165,13 @@ export class SocialHubApp extends Application {
     root.querySelector("#social-post-submit")?.addEventListener("click", async () => {
       if (!contentEl?.value.trim()) return;
       if (!typeEl) return;
-      if (typeEl.value === "summary" && !missionEl?.value) {
+      const formData = new FormData();
+      if (contentEl) formData.set("content", contentEl.value);
+      if (typeEl) formData.set("type", typeEl.value);
+      if (missionEl) formData.set("missionId", missionEl.value);
+      const missionId = String(formData.get("missionId") || "");
+
+      if (typeEl.value === "summary" && !missionId) {
         ui.notifications?.warn("Selecione uma missão para o resumo.");
         return;
       }
@@ -169,11 +179,17 @@ export class SocialHubApp extends Application {
       await PostService.create({
         content: contentEl.value,
         type: (typeEl?.value as "post" | "summary") ?? "post",
-        meta: typeEl?.value === "summary" && missionEl?.value ? { missionId: missionEl.value } : undefined,
+        meta: typeEl?.value === "summary" && missionId ? { missionId } : undefined,
       });
 
       contentEl.value = "";
       if (missionEl) missionEl.value = "";
+    });
+
+    root.querySelectorAll<HTMLElement>(".spoiler").forEach((elm) => {
+      elm.addEventListener("click", () => {
+        elm.classList.toggle("revealed");
+      });
     });
 
     bindClick(root, ".react-btn", async (btn) => {
@@ -200,8 +216,8 @@ export class SocialHubApp extends Application {
   }
 
   private renderPostContent(content: string): string {
-    const spoilerParsed = parseSpoiler(content);
-    const markdownParsed = parseMarkdown(spoilerParsed);
+    const parsed = parseSpoiler(parseMarkdown(content));
+    const markdownParsed = parsed;
     const mentionParsed = parseMentions(markdownParsed).html;
     const withBreaks = nl2br(mentionParsed);
     return sanitize(withBreaks);
