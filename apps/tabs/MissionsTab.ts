@@ -20,6 +20,7 @@ export class MissionsTab implements SocialTab {
         const isOpen = m.status === "open";
         return {
           ...m,
+          levelRange: m.levelRange ? `${m.levelRange[0]}-${m.levelRange[1]}` : "—",
           sessionDateFmt: formatDate(m.sessionDate),
           creatorName: getUserName(m.createdBy),
           userStatus: MissionService.getUserStatus(m, uid),
@@ -41,7 +42,13 @@ export class MissionsTab implements SocialTab {
       });
     });
 
-    bindClick(root, ".mission-join-btn", async (btn) => MissionService.join(getClosestDataId(btn, "data-mission-id")));
+    root.querySelectorAll<HTMLElement>(".mission-join-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const missionId = btn.closest("[data-mission-id]")?.getAttribute("data-mission-id") ?? "";
+        if (!missionId) return;
+        await MissionService.join(missionId);
+      });
+    });
     bindClick(root, ".mission-leave-btn", async (btn) => MissionService.leave(getClosestDataId(btn, "data-mission-id")));
     bindClick(root, ".mission-close-btn", async (btn) => MissionService.close(getClosestDataId(btn, "data-mission-id")));
     bindClick(root, ".mission-edit-btn", (btn) => {
