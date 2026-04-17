@@ -30,6 +30,7 @@ export class GraveyardTab implements SocialTab {
     bindClick(root, ".f-btn", async (btn) => {
       const graveId = getClosestDataId(btn, "data-grave-id");
       if (!graveId) return;
+      this.playRoseAnimation(btn);
       await GraveService.respect(graveId);
     });
 
@@ -68,6 +69,20 @@ export class GraveyardTab implements SocialTab {
         },
       });
     });
+  }
+
+
+  private playRoseAnimation(button: HTMLElement): void {
+    const card = button.closest<HTMLElement>(".grave-card");
+    if (!card) return;
+
+    const rose = document.createElement("span");
+    rose.className = "rose-fx";
+    rose.textContent = "🌹";
+    rose.style.left = `${Math.floor(Math.random() * 60) + 20}%`;
+
+    card.appendChild(rose);
+    rose.addEventListener("animationend", () => rose.remove(), { once: true });
   }
 
   private openCreateDialog(): void {

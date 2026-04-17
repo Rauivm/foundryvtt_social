@@ -107,17 +107,28 @@ export class SocialHubApp extends Application {
   }
 
   private activateFeedListeners(root: HTMLElement): void {
+    const typeEl = root.querySelector<HTMLSelectElement>("#social-post-type");
+    const missionEl = root.querySelector<HTMLSelectElement>("#social-post-mission");
+    const syncMissionSelectVisibility = (): void => {
+      if (!missionEl || !typeEl) return;
+      missionEl.style.display = typeEl.value === "summary" ? "inline-block" : "none";
+    };
+
+    typeEl?.addEventListener("change", syncMissionSelectVisibility);
+    syncMissionSelectVisibility();
+
     root.querySelector("#social-post-submit")?.addEventListener("click", async () => {
       const ta = root.querySelector<HTMLTextAreaElement>("#social-post-content");
-      const typeEl = root.querySelector<HTMLSelectElement>("#social-post-type");
-      const missionEl = root.querySelector<HTMLSelectElement>("#social-post-mission");
       if (!ta?.value.trim()) return;
+
       await PostService.create({
         content: ta.value,
         type: (typeEl?.value as "post" | "summary") ?? "post",
         meta: typeEl?.value === "summary" && missionEl?.value ? { missionId: missionEl.value } : undefined,
       });
+
       ta.value = "";
+      if (missionEl) missionEl.value = "";
     });
 
     bindClick(root, ".react-btn", async (btn) => {
